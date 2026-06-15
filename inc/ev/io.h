@@ -37,6 +37,11 @@ typedef enum {
 	EV_OPEN_STAT= 128,
 } ev_open_flags_t;
 typedef enum {
+	// Valid on windows only, does not escape arguments
+	// Used only to allow cmd /c command. Thanks windows, very cool!
+	EV_SPAWN_NOESCAPE,
+} ev_spawn_flags_t;
+typedef enum {
 	EV_PATH_HOME,
 	EV_PATH_CONFIG,
 	EV_PATH_DATA,
@@ -172,7 +177,7 @@ typedef struct ev_proc *ev_proc_t;
 
 // Equivalent to posix's fork then exec
 ev_code_t ev_proc_spawn(
-	ev_filelist_t fl, ev_proc_t *pres,
+	ev_filelist_t fl, ev_proc_t *pres, ev_spawn_flags_t flags,
 	const char **argv, const char **env, const char *cwd,
 	ev_fd_t *pin, ev_fd_t *pout, ev_fd_t *perr
 );

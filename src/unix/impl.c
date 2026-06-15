@@ -804,10 +804,12 @@ ev_code_t ev_dns_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_
 
 // Equivalent to posix's fork then exec
 ev_code_t ev_proc_spawn(
-	ev_filelist_t fl, ev_proc_t *pres,
+	ev_filelist_t fl, ev_proc_t *pres, ev_spawn_flags_t flags,
 	const char **argv, const char **env, const char *cwd,
 	ev_fd_t *pin, ev_fd_t *pout, ev_fd_t *perr
 ) {
+	(void)flags;
+
 	int in_parent = -1, in_child = -1;
 	int out_parent = -1, out_child = -1;
 	int err_parent = -1, err_child = -1;

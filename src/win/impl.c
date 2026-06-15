@@ -106,7 +106,41 @@ static int _evi_win_child_std_new(bool in, HANDLE *pparent, HANDLE *pchild, ev_f
 	*pnew = res;
 	return 0;
 }
-static wchar_t *_evi_win_argv_to_cmdline(const char **argv) {
+static wchar_t *_evi_win_argv_to_cmdline_raw(const char **argv) {
+	size_t n = 0, buff_n = 0;
+
+	for (const char **it = argv; *it; it++) {
+		n++;
+		buff_n += strlen(*it) + 1;
+	}
+
+	wchar_t *buff = malloc(sizeof *buff * buff_n);
+	if (!buff) return NULL;
+
+	buff[0] = 0;
+
+	for (size_t i = 0; i < n; i++) {
+		if (i != 0) {
+			wcscat(buff, L" ");
+		}
+
+		wchar_t *warg = evi_win_conv_utf8(argv[i], 0);
+		if (warg == NULL) {
+			free(buff);
+			return NULL;
+		}
+
+		wcscat(buff, warg);
+	}
+
+	return buff;
+}
+static wchar_t *_evi_win_argv_to_cmdline(const char **argv, ev_spawn_flags_t flags) {
+	// Horray for windows-specific weirdness (I hate this OS with a burning passion)
+	if (flags == EV_SPAWN_NOESCAPE) {
+		return _evi_win_argv_to_cmdline_raw(argv);
+	}
+
 	size_t n = 0, buff_n = 0;
 
 	for (const char **it = argv; *it; it++) {
@@ -921,7 +955,7 @@ ev_code_t ev_socket_connect(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, e
 }
 
 ev_code_t ev_proc_spawn(
-	ev_filelist_t fl, ev_proc_t *pres,
+	ev_filelist_t fl, ev_proc_t *pres, ev_spawn_flags_t flags,
 	const char **argv, const char **envp, const char *cwd,
 	ev_fd_t *pin,
 	ev_fd_t *pout,
@@ -943,7 +977,7 @@ ev_code_t ev_proc_spawn(
 		if (_evi_win_child_std_new(false, &err_parent, &err_child, &err_res) < 0) goto err_out_pipe;
 	}
 
-	wchar_t *cmdline = _evi_win_argv_to_cmdline(argv);
+	wchar_t *cmdline = _evi_win_argv_to_cmdline(argv, flags);
 	if (!cmdline) goto err_err_pipe;
 
 	wchar_t *envblock = _evi_win_envp_to_envblock(envp);
