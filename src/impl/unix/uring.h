@@ -1,7 +1,12 @@
 #pragma once
 
-#include <ev/conf.h>
+// NOT SUPPORTED!!! DRAGONS BE HERE!!!!!
+
+#include "../../def/conf.h"
+
 #include <ev.h>
+#include <ev/conf.h>
+#include <ev/io.h>
 
 // #include <linux/stat.h>
 #include <liburing.h>
@@ -28,14 +33,14 @@ typedef struct {
 	void *ticket;
 	ev_async_type_t type;
 	union {
-		ev_handle_t *phnd;
+		ev_hnd_t *phnd;
 		size_t *pn;
 		struct {
 			ev_stat_t *pres;
 			struct statx buff;
 		} stat;
 		struct {
-			ev_handle_t *pres;
+			ev_hnd_t *pres;
 			ev_server_t *pserv_res;
 			ev_addr_t *paddr;
 			uint16_t *pport;
@@ -49,7 +54,7 @@ typedef struct {
 			struct sockaddr_storage addr;
 			int addrlen;
 
-			ev_handle_t *pres;
+			ev_hnd_t *pres;
 		} connect;
 		struct {
 			int *pcode;
@@ -64,7 +69,7 @@ typedef struct {
 	};
 } *ev_async_udata_t, ev_async_udata_s;
 
-typedef struct ev_async {
+typedef struct evi_async {
 	struct io_uring ctx;
 
 	int usermsg_fd;

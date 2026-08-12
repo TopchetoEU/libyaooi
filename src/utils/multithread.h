@@ -1,9 +1,8 @@
 #pragma once
 
+#include <ev/time.h>
 #include <ev/conf.h>
-#include <ev/sync.h>
 #include <ev/errno.h>
-#include <ev.h>
 
 #include <assert.h>
 
@@ -30,8 +29,14 @@
 	#define ev_cond_free(cond) ((void)cond)
 	#define ev_cond_wait(cond, mut) (void)SleepConditionVariableCS(cond, mut, INFINITE)
 	static inline ev_code_t ev_cond_timewait(ev_cond_t cond, ev_mutex_t mut, ev_time_t timeout) {
-		ev_time_t curr;
-		evs_monotime(&curr);
+		LARGE_INTEGER counter, freq;
+		QueryPerformanceCounter(&counter);
+		QueryPerformanceFrequency(&freq);
+
+		int64_t ms =
+			ev_timems(timeout) -
+			(counter.QuadPart / freq.QuadPart) * 1000 +
+			(int64_t)(counter.QuadPart % freq.QuadPart) * 1000LL / freq.QuadPart -
 
 		int64_t ms = ev_timems(ev_timesub(timeout, curr));
 		if (ms < 0) ms = 0;

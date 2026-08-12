@@ -872,13 +872,13 @@ ev_code_t evs_nextenv(void **pit, const char **ppair) {
 	return EV_OK;
 }
 
-ev_code_t evs_realtime(ev_time_t *pres) {
+ev_code_t ev_realtime(ev_time_t *pres) {
 	FILETIME time;
 	GetSystemTimePreciseAsFileTime(&time);
 	*pres = evi_win_conv_filetime(time);
 	return EV_OK;
 }
-ev_code_t evs_monotime(ev_time_t *pres) {
+ev_code_t ev_monotime(ev_time_t *pres) {
 	LARGE_INTEGER counter, freq;
 	QueryPerformanceCounter(&counter);
 	QueryPerformanceFrequency(&freq);
@@ -892,7 +892,7 @@ ev_code_t evs_monotime(ev_time_t *pres) {
 	return EV_OK;
 }
 
-void evs_sleep(ev_time_t time) {
+void ev_sleep(ev_time_t time) {
 	Sleep(ev_timems(time));
 }
 

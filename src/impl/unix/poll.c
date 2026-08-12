@@ -10,7 +10,6 @@
 #include "./poll.h"
 #include "./pollish.h"
 
-#include "../async.h"
 #include "../../ev.h"
 #include "./pollish.c"
 

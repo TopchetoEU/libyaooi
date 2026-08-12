@@ -10,11 +10,11 @@ TARGET_AR := $(CROSS_COMPILE)$(AR)
 ifeq ($(TARGET),Windows)
 	override LDFLAGS += -lws2_32
 	LIBPREFIX ?= bin/Windows/
-else
-	ifeq ($(TARGET),Linux)
-		override CCFLAGS += $(shell pkg-config --cflags liburing)
-		override LDFLAGS += $(shell pkg-config --libs liburing)
-	endif
+#else # Fuck uring
+#	ifeq ($(TARGET),Linux)
+#		override CCFLAGS += $(shell pkg-config --cflags liburing)
+#		override LDFLAGS += $(shell pkg-config --libs liburing)
+#	endif
 endif
 
 NAME ?= ev

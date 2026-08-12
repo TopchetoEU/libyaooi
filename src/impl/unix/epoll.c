@@ -1,27 +1,23 @@
 #pragma once
 
 #include <ev/conf.h>
-#include <ev/sync.h>
 #include <ev/errno.h>
 
 #include <stdlib.h>
 #include <assert.h>
 #include <err.h>
 #include <sys/epoll.h>
+#include <sys/stat.h>
 #include <sys/timerfd.h>
 
 #include "./epoll.h"
 #include "./pollish.h"
 
-#include "../async.h"
-#include "../../ev.h"
 #include "./pollish.c"
-#include "ev.h"
-#include "utils.c"
 
 static uint64_t evi_async_subms_diff(ev_time_t timeout) {
 	ev_time_t now;
-	if (evs_monotime(&now) != EV_OK) return 0;
+	if (ev_timenow(&now) != EV_OK) return 0;
 
 	ev_time_t diff = ev_timesub(now, timeout);
 	if (diff.sec != 0) return 0;
@@ -29,32 +25,40 @@ static uint64_t evi_async_subms_diff(ev_time_t timeout) {
 	return diff.nsec;
 }
 
-static int evi_epoll_type_to_mask(ev_pl_type_t type) {
-	if (type & 0x10) {
-		return EPOLLRDHUP | EPOLLERR | EPOLLHUP | EPOLLOUT;
+static evi_pl_evn_mask_t evi_epoll_mkmask(evi_pl_evn_mask_t type) {
+	int mask = EPOLLRDHUP | EPOLLERR | EPOLLHUP;
+
+	switch (type) {
+		case EVI_PL_READABLE: mask |= EPOLLIN; break;
+		case EVI_PL_WRITABLE: mask |= EPOLLOUT; break;
 	}
-	else {
-		return EPOLLRDHUP | EPOLLERR | EPOLLHUP | EPOLLIN;
+
+	return mask;
+}
+static int evi_epoll_type_to_unmask(ev_req_type_t type) {
+	switch (type) {
+		case EVI_READ:
+		case EVI_FILE_READ:
+		case EVI_SOCKET_ACCEPT:
+		case EVI_PROC_WAIT:
+			return ~EPOLLIN;
+		case EVI_WRITE:
+		case EVI_FILE_WRITE:
+			return ~EPOLLOUT;
+		default:
+			return -1;
 	}
 }
-static int evi_epoll_type_to_unmask(ev_pl_type_t type) {
-	if (type & 0x10) {
-		return ~EPOLLOUT;
-	}
-	else {
-		return ~EPOLLIN;
-	}
-}
-static int evi_epoll_fd_to_mask(ev_epoll_fd_t fd) {
+static int evi_epoll_fd_to_mask(ev_fd_t fd) {
 	int flags = 0;
 
-	if (fd->read) flags |= evi_epoll_type_to_mask(EVI_POLL_READ);
-	if (fd->write) flags |= evi_epoll_type_to_mask(EVI_POLL_WRITE);
+	if (fd->impl.async.read) flags |= evi_epoll_mkmask(EVI_PL_READABLE);
+	if (fd->impl.async.write) flags |= evi_epoll_mkmask(EVI_PL_WRITABLE);
 
 	return flags;
 }
 
-ev_code_t evi_pl_impl_add(ev_t ev, ev_pl_event_t evn) {
+ev_code_t evi_pl_impl_add(ev_t ev, evi_pl_evn_t evn) {
 	ev_epoll_fd_t fd = malloc(sizeof *fd);
 	if (!fd) goto error;
 	fd->fd = evn.fd;
@@ -114,13 +118,13 @@ error:
 	return evi_unix_conv_errno(errno);
 }
 
-static ev_pl_res_t evi_pl_impl_poll(ev_t ev, const ev_time_t *ptimeout, void **pticket, ev_code_t *perr) {
+static ev_code_t evi_pl_impl_poll(ev_t ev, const ev_time_t *ptimeout, ev_req_t *pres) {
 	struct epoll_event evn = { 0 };
 
 	if (ptimeout) {
 		ev_time_t tmp;
-		evs_monotime(&tmp);
-		if (ev_timecmp(tmp, *ptimeout) > 0) return EV_POLL_TIMEOUT;
+		ev_timenow(&tmp);
+		if (ev_timecmp(tmp, *ptimeout) > 0) return EV_ETIMEDOUT;
 
 		timerfd_settime(ev->async->timer_fd, TFD_TIMER_ABSTIME, &(struct itimerspec) {
 			.it_value = { ptimeout->sec, ptimeout->nsec },

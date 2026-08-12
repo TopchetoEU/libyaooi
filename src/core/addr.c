@@ -1,10 +1,9 @@
 #pragma once
 
-#include <ev/conf.h>
-#include <ev.h>
-
 #include <ctype.h>
 #include <string.h>
+
+#include <ev/addr.h>
 
 static bool ev_parse_ipv4(const char *str, ev_addr_t *pres) {
 	ev_addr_t res;
@@ -95,12 +94,12 @@ static bool ev_parse_ipv6(const char *str, ev_addr_t *pres) {
 	return true;
 }
 
-bool ev_parse_ip(const char *str, ev_addr_t *pres) {
+bool ev_addrparse(const char *str, ev_addr_t *pres) {
 	if (ev_parse_ipv4(str, pres)) return true;
 	if (ev_parse_ipv6(str, pres)) return true;
 	return false;
 }
-bool ev_cmpaddr(ev_addr_t a, ev_addr_t b) {
+bool ev_addrcmp(ev_addr_t a, ev_addr_t b) {
 	if (a.type != b.type) return false;
 	if (a.type == EV_ADDR_IPV4) {
 		return !memcmp(a.v4, b.v4, sizeof a.v4);

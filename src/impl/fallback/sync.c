@@ -386,14 +386,14 @@ ev_code_t evs_nextenv(void **pit, const char **ppair) {
 	return EV_OK;
 }
 
-ev_code_t evs_realtime(ev_time_t *pres) {
+ev_code_t ev_realtime(ev_time_t *pres) {
 	time_t now = time(NULL);
 	if (now == -1) return EV_EIO;
 
 	*pres = (ev_time_t) { .sec = now, .nsec = 0 };
 	return EV_OK;
 }
-ev_code_t evs_monotime(ev_time_t *pres) {
+ev_code_t ev_monotime(ev_time_t *pres) {
 	clock_t now = clock();
 	if (now == -1) return EV_EIO;
 

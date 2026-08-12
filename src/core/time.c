@@ -1,7 +1,6 @@
 #pragma once
 
-#include <ev/conf.h>
-#include <ev.h>
+#include <ev/time.h>
 
 ev_time_t ev_timeadd(ev_time_t a, ev_time_t b) {
 	ev_time_t res = { .sec = a.sec + b.sec, .nsec = a.nsec + b.nsec };

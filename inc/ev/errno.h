@@ -1,6 +1,8 @@
 #ifndef EV_ERRNO_H
 #define EV_ERRNO_H
 
+#include <ev/conf.h>
+
 // These have more or less been ripped from libuv
 
 #define EV_SIGDEF(X) \
@@ -102,5 +104,8 @@ typedef enum {
 	EV_SIGDEF(EV_SIGDEF_ENUM_X)
 	#undef EV_SIGDEF_ENUM_X
 } ev_code_t;
+
+// Converts the error code to a human-readable string
+const char *EV_NONULL ev_strerr(ev_code_t code);
 
 #endif

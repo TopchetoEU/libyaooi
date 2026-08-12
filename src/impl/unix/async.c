@@ -3,11 +3,12 @@
 
 // IWYU pragma: begin_exports
 #ifdef EV_USE_URING
-	#include "./unix/uring.c"
+	#include "./uring.c"
 #elif defined EV_USE_EPOLL
-	#include "./unix/epoll.c"
+	#include "./epoll.c"
 #elif defined EV_USE_POSIX
-	#include "./unix/poll.c"
+	#include "./poll.c"
 #else
-	#include "./ansi/async.c"
+	#include "../fallback/async.c"
 #endif
+// IWYU pragma: end_exports

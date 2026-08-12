@@ -42,8 +42,8 @@
 
 #ifdef EV_USE_LINUX
 	#define EV_USE_MULTITHREAD
-	// Uring is rather unstable, so disabled by default
-	// Build with -DEV_USE_URING to enable
+	// uring support is discontinued
+	// Enable yourself with -DEV_USE_URING, here be dragons
 	// #define EV_USE_URING
 	#define EV_USE_EPOLL
 #elif defined EV_USE_POSIX
@@ -80,8 +80,12 @@
 
 // 5. Add gnu sources on linux (required for uring)
 
-#ifdef EV_USE_LINUX
-	#define _GNU_SOURCE
+// Generic defines
+
+#ifdef __clang__
+	#define EV_NONULL _Nonnull
+#else
+	#define EV_NONULL __attribute__((nonnull))
 #endif
 
 #endif
