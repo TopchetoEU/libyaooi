@@ -354,7 +354,9 @@ static ev_code_t evi_unix_conv_aierr(int aierr) {
 		#ifdef EV_USE_LINUX
 			case EAI_NODATA: return EV_EAI_NODATA;
 			case EAI_ADDRFAMILY: return EV_EAI_ADDRFAMILY;
-			case EAI_CANCELED: return EV_EAI_CANCELED;
+			#ifdef EAI_CANCELED // pesky gnu extensions
+				case EAI_CANCELED: return EV_EAI_CANCELED;
+			#endif
 		#endif
 
 		default: return EV_EUNKNOWN;
