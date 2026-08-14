@@ -26,20 +26,18 @@
 #include <ev/conf.h>
 #include <ev/errno.h>
 #include <ev/signo.h>
-#include <ev/time.h>
 
 #ifdef EV_USE_URING
 	#include <sys/signalfd.h>
 #endif
 
-#include "../../core/filelist.h"
-
 #include "../../utils/lists.h"
 #include "../../utils/multithread.h"
 
-#include "./impl.h"
+#include "./impl.h" // IWYU pragma: export
 
-#include "./async.h" // IWYU pragma: export
+#include "../../core/time.c"
+#include "../../core/filelist.c"
 #include "./async.c" // IWYU pragma: export
 
 #ifndef __USE_GNU

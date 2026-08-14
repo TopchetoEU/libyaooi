@@ -18,7 +18,7 @@ typedef struct ev_queue {
 
 	bool dead;
 
-	struct evi_queue_impl impl;
+	evi_queue_impl_t impl;
 } *ev_queue_t;
 
 static ev_req_t evi_queue_pop(ev_queue_t queue, ev_code_t *pcode);
@@ -47,8 +47,8 @@ struct ev_req {
 			bool cancelled;
 
 			union {
-				// struct evi_req_ioq ioq;
-				struct evi_req_task task;
+				evi_req_ioq_t ioq;
+				evi_req_task_t task;
 			};
 		} running;
 		struct {

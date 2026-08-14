@@ -1,16 +1,12 @@
 #pragma once
 
-#include <ev/conf.h>
-#include <ev/sync.h>
-#include <ev/errno.h>
-#include <ev.h>
-
 #include <sys/poll.h>
 
-#include "./poll.h"
-#include "./pollish.h"
+#include <ev/conf.h>
+#include <ev/errno.h>
 
-#include "../../ev.h"
+#include "./poll.h" // IWYU pragma: export
+
 #include "./pollish.c"
 
 static uint64_t evi_async_subms_diff(ev_time_t timeout) {

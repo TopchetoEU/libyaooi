@@ -22,7 +22,7 @@ void ev_queue_free(ev_queue_t queue);
 // - If `pdeadline` was reached before a result was pushed, NULL is stored in pres
 // - If `pdeadline` is before the current moment, returns immediatly.
 // A good way to non-blockingly poll is to pass ev_monotime() to `pdeadline`
-ev_code_t ev_queue_poll(ev_queue_t queue, ev_time_t *pdeadline, ev_req_t *pres);
+ev_code_t ev_queue_poll(ev_queue_t queue, const ev_time_t *pdeadline, ev_req_t *preq, ev_code_t *pcode);
 // Returns true if no more requests are present in the queue
 bool ev_queue_empty(ev_queue_t queue);
 

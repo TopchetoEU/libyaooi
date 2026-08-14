@@ -25,9 +25,9 @@ typedef struct ev_pool {
 	#define evi_list_pool_worker_next(node) (node)->next
 } eiv_pool_s, *evi_pool_t;
 
-struct evi_req_task {
+typedef struct {
 	evi_pool_worker_t worker;
-};
+} evi_req_task_t;
 
 static ev_code_t evi_pool_exec(evi_pool_t pool, ev_req_t req, ev_worker_t worker, void *args);
 static void evi_pool_init(evi_pool_t pool);

@@ -14,7 +14,7 @@
 
 #include "./async.h" // IWYU pragma: export
 
-struct evi_fd_impl {
+typedef struct {
 	#ifndef EV_USE_LINUX
 		bool is_at;
 	#endif
@@ -25,8 +25,8 @@ struct evi_fd_impl {
 		#endif
 	};
 
-	struct evi_async_fd async;
-};
+	evi_async_fd_t async;
+} evi_fd_impl_t;
 struct evi_dir_impl {
 	DIR *dir;
 };

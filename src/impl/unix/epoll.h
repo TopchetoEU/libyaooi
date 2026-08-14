@@ -3,14 +3,14 @@
 #include <ev/conf.h>
 #include <ev/errno.h>
 
-#include "./pollish.h"
+#include "./pollish.h" // IWYU pragma: export
 
-struct evi_queue_impl {
+typedef struct {
 	evi_pl_s pl;
 	int epoll_fd;
 	int timer_fd;
-};
+} evi_queue_impl_t;
 
-struct evi_async_fd {
+typedef struct {
 	unsigned read, write;
-};
+} evi_async_fd_t;

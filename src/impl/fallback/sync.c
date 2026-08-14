@@ -1,18 +1,15 @@
 #pragma once
 
-#include <ev/conf.h>
-#include <ev/errno.h>
-#include <ev/sync.h>
-#include <ev.h>
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
-#include "../../ev.h"
+#include <ev/conf.h>
+#include <ev/errno.h>
+
+#include "../../core/time.c"
 #include "./utils.c"
 
 #ifndef __USE_GNU

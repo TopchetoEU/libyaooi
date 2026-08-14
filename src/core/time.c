@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ev/time.h>
+#include <ev/time.h> // IWYU pragma: export
 
 ev_time_t ev_timeadd(ev_time_t a, ev_time_t b) {
 	ev_time_t res = { .sec = a.sec + b.sec, .nsec = a.nsec + b.nsec };

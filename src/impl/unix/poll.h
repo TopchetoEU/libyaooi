@@ -1,7 +1,6 @@
 #pragma once
 
 #include <ev/conf.h>
-#include <ev.h>
 #include <ev/errno.h>
 
 #include "./pollish.h"

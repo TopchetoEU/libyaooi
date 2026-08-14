@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <string.h>
 
-#include <ev/addr.h>
+#include <ev/addr.h> // IWYU pragma: export
 
 static bool ev_parse_ipv4(const char *str, ev_addr_t *pres) {
 	ev_addr_t res;

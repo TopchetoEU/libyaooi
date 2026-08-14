@@ -20,7 +20,7 @@ struct ev_fd {
 
 	ev_req_t head;
 
-	struct evi_fd_impl impl;
+	evi_fd_impl_t impl;
 };
 
 struct ev_dir {

@@ -1,8 +1,5 @@
 #pragma once
 
-#include <ev/conf.h>
-#include <ev/errno.h>
-
 #include <stdlib.h>
 #include <assert.h>
 #include <err.h>
@@ -10,8 +7,10 @@
 #include <sys/stat.h>
 #include <sys/timerfd.h>
 
-#include "./epoll.h"
-#include "./pollish.h"
+#include <ev/conf.h>
+#include <ev/errno.h>
+
+#include "./epoll.h" // IWYU pragma: export
 
 #include "./pollish.c"
 
