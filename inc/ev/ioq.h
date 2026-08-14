@@ -36,8 +36,8 @@ ev_code_t evq_dir_new(ev_req_t req, const char *EV_NONULL path, int mode);
 ev_code_t evq_dir_open(ev_req_t req, ev_filelist_t fl, ev_dir_t *pres, const char *EV_NONULL path);
 ev_code_t evq_dir_next(ev_req_t req, ev_dir_t dir, char **EV_NONULL pname);
 
-ev_code_t evq_socket_connect(ev_req_t req, ev_fd_t client, ev_addr_t addr, uint16_t port);
-ev_code_t evq_socket_accept(ev_req_t req, ev_fd_t server, ev_fd_t client, ev_addr_t *EV_NONULL paddr, uint16_t *EV_NONULL pport);
+ev_code_t evq_socket_connect(ev_req_t req, ev_filelist_t fl, ev_fd_t *pclient, ev_addr_t addr, uint16_t port);
+ev_code_t evq_socket_accept(ev_req_t req, ev_filelist_t fl, ev_fd_t server, ev_fd_t *pclient, ev_addr_t *EV_NONULL paddr, uint16_t *EV_NONULL pport);
 
 ev_code_t evq_dns_getaddrinfo(ev_req_t req, ev_addrinfo_t *EV_NONULL pres, const char *EV_NONULL name, ev_addrinfo_flags_t flags);
 
