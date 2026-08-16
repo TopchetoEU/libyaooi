@@ -1,90 +1,108 @@
 #pragma once
 
+#include "pollish.h"
+#define _GNU_SOURCE
+
+#include <stdlib.h>
+
+#include <sys/select.h>
 #include <sys/poll.h>
 
 #include <ev/conf.h>
 #include <ev/errno.h>
+#include <ev/time.h>
+#include <ev/queue.h>
 
 #include "./poll.h" // IWYU pragma: export
 
 #include "./pollish.c"
 
-static uint64_t evi_async_subms_diff(ev_time_t timeout) {
-	ev_time_t now;
-	if (evs_monotime(&now) != EV_OK) return 0;
+static uint64_t _evi_poll_subms_diff(ev_time_t timeout) {
+	ev_time_t diff = ev_timesub(ev_time(EV_CLOCK_MONOTIME), timeout);
 
-	ev_time_t diff = ev_timesub(now, timeout);
 	if (diff.sec != 0) return 0;
 	if (diff.nsec > 1000000) return 0;
 	return diff.nsec;
 }
 
-static bool evi_poll_addfd(ev_async_t async, int fd, bool write, size_t *pn, size_t *ppollfd_i) {
-	struct pollfd *target = NULL;
-	for (size_t i = 0; i < *pn; i++) {
-		if (async->fds[i].fd == fd) {
-			target = &async->fds[i];
-			break;
-		}
-	}
-
-	if (!target) {
-		if (*pn >= async->fds_cap) {
-			async->fds_cap *= 2;
-			if (!async->fds_cap) async->fds_cap = 16;
-
-			async->fds = realloc(async->fds, sizeof *async->fds * async->fds_cap);
-			if (!async->fds) return false;
+static ev_code_t evi_pl_impl_setmask(ev_queue_t queue, void *udata, int fd, evi_pl_evn_mask_t mask) {
+	if (mask == 0) {
+		for (ev_poll_node_t i = queue->impl.head; i; i = i->next) {
+			if (i->fd == fd) {
+				evi_dlist_del(poll, i);
+				break;
+			}
 		}
 
-		target = &async->fds[*pn];
-		(*pn)++;
+		return EV_OK;
+	}
+	else {
+		ev_poll_node_t i;
+		for (i = queue->impl.head; i; i = i->next) {
+			if (i->fd == fd) break;
+		}
+
+		if (!i) {
+			i = malloc(sizeof *i);
+			if (!i) return EV_ENOMEM;
+
+			i->fd = fd;
+
+			evi_dlist_add(poll, queue->impl.head, i);
+		}
+
+		i->evn = mask;
+		i->udata = udata;
+
+		return EV_OK;
+	}
+}
+static bool _evi_poll_addfd(ev_queue_t queue, ev_poll_node_t node, size_t *pn) {
+	if (*pn >= queue->impl.fds_cap) {
+		queue->impl.fds_cap *= 2;
+		if (!queue->impl.fds_cap) queue->impl.fds_cap = 16;
+
+		struct pollfd *new_fds = realloc(queue->impl.fds, sizeof *queue->impl.fds * queue->impl.fds_cap);
+		if (!new_fds) return false;
+		queue->impl.fds = new_fds;
 	}
 
-	memset(&async->fds[*pn], 0 ,sizeof *async->fds);
+	struct pollfd *target = &queue->impl.fds[*pn];
+	(*pn)++;
 
-	if (write) target->events |= POLLOUT;
-	else target->events |= POLLIN;
+	memset(&queue->impl.fds[*pn], 0 ,sizeof *queue->impl.fds);
 
-	target->fd = fd;
-	*ppollfd_i = target - async->fds;
+	target->fd = node->fd;
+	target->events = 0;
+
+	if (node->evn & EVI_PL_READABLE) target->events |= POLLIN;
+	if (node->evn & EVI_PL_WRITABLE) target->events |= POLLOUT;
+
+	node->pollfd_i = target - queue->impl.fds;
 
 	return true;
 }
 
-static ev_poll_node_t evi_poll_pushreq(ev_t ev) {
-	ev_poll_node_t req = malloc(sizeof *req);
-	if (!req) return NULL;
-
-	if (ev->async->req_head) ev->async->req_head->slot = &req->next;
-	req->next = ev->async->req_head;
-	req->slot = &ev->async->req_head;
-	ev->async->req_head = req;
-	return req;
-}
-
-static size_t evi_poll(ev_t ev, size_t fd_n, const ev_time_t *ptimeout) {
+static size_t _evi_poll_wrapper(ev_queue_t queue, size_t fd_n, const ev_time_t *deadline) {
 	while (true) {
 		int code;
-		if (ptimeout) {
-			ev_time_t now = { 0 };
-			evs_monotime(&now);
-			ev_time_t diff = ev_timesub(*ptimeout, now);
+		if (deadline) {
+			ev_time_t diff = ev_timesub(*deadline, ev_time(EV_CLOCK_MONOTIME));
 
-			#ifdef _GNU_SOURCE
+			#ifdef EV_USE_LINUX
 				if (diff.sec < 0) {
 					diff.sec = 0;
 					diff.nsec = 0;
 				}
-				code = ppoll(ev->async->fds, fd_n, &(struct timespec) { .tv_sec = diff.sec, .tv_nsec = diff.nsec }, NULL);
+				code = ppoll(queue->impl.fds, fd_n, &(struct timespec) { .tv_sec = diff.sec, .tv_nsec = diff.nsec }, NULL);
 			#else
 				int64_t diff_ms = ev_timems(diff);
 				if (diff_ms < 0) diff_ms = 0;
-				code = poll(ev->async->fds, fd_n, diff_ms);
+				code = poll(queue->impl.fds, fd_n, diff_ms);
 			#endif
 		}
 		else {
-			code = poll(ev->async->fds, fd_n, -1);
+			code = poll(queue->impl.fds, fd_n, -1);
 		}
 
 		if (code < 0) {
@@ -96,73 +114,40 @@ static size_t evi_poll(ev_t ev, size_t fd_n, const ev_time_t *ptimeout) {
 	}
 }
 
-ev_code_t evi_pl_impl_add(ev_t ev, ev_pl_event_t evn) {
-	ev_poll_node_t node = evi_poll_pushreq(ev);
-	if (!node) return EV_ENOMEM;
-
-	node->evn = evn;
-	return EV_OK;
-}
-
-static ev_pl_res_t evi_pl_impl_poll(ev_t ev, const ev_time_t *ptimeout, void **pticket, ev_code_t *perr) {
+static ev_code_t evi_pl_impl_poll(ev_queue_t queue, const ev_time_t *deadline, void **pudata, evi_pl_evn_mask_t *pready) {
 	size_t fd_n = 0;
-	size_t usermsg_pollfd_i;
-	if (!evi_poll_addfd(ev->async, ev->async->pl->usermsg_read, false, &fd_n, &usermsg_pollfd_i)) return EV_POLL_TIMEOUT;
 
-	for (ev_poll_node_t it = ev->async->req_head; it; it = it->next) {
-		switch (it->evn.type) {
-			case EVI_POLL_PREAD:
-			case EVI_POLL_READ:
-			case EVI_POLL_ACCEPT: {
-				if (!evi_poll_addfd(ev->async, it->evn.fd, false, &fd_n, &it->pollfd_i)) return EV_POLL_TIMEOUT;
-				break;
-			}
-			case EVI_POLL_PWRITE:
-			case EVI_POLL_WRITE: {
-				if (!evi_poll_addfd(ev->async, it->evn.fd, true, &fd_n, &it->pollfd_i)) return EV_POLL_TIMEOUT;
-				break;
-			}
+	for (ev_poll_node_t it = queue->impl.head; it; it = it->next) {
+		if (!_evi_poll_addfd(queue, it, &fd_n)) return EV_ENOMEM;
+	}
+
+	_evi_poll_wrapper(queue, fd_n, deadline);
+
+	for (ev_poll_node_t it = queue->impl.head; it; it = it->next) {
+		struct pollfd pollfd = queue->impl.fds[it->pollfd_i];
+		evi_pl_evn_mask_t ready = 0;
+
+		if (pollfd.revents & (POLLIN | POLLERR | POLLHUP)) ready |= EVI_PL_READABLE;
+		if (pollfd.revents & (POLLOUT | POLLERR | POLLHUP)) ready |= EVI_PL_WRITABLE;
+
+		if (ready) {
+			*pready = ready;
+			*pudata = it->udata;
+			return EV_OK;
 		}
 	}
 
-	evi_poll(ev, fd_n, ptimeout);
-
-	for (ev_poll_node_t it = ev->async->req_head; it; it = it->next) {
-		struct pollfd pollfd = ev->async->fds[it->pollfd_i];
-		int mask = 0;
-
-		switch (it->evn.type) {
-			case EVI_POLL_ACCEPT:
-			case EVI_POLL_READ:
-			case EVI_POLL_PREAD: mask = POLLIN | POLLERR | POLLHUP; break;
-
-			case EVI_POLL_WRITE:
-			case EVI_POLL_PWRITE: mask = POLLOUT | POLLERR | POLLHUP; break;
-		}
-
-		if (pollfd.revents & mask) {
-			if (evi_pl_cb(ev, &it->evn, pticket, perr)) {
-				if (it->next) it->next->slot = it->slot;
-				*it->slot = it->next;
-				free(it);
-
-				return EV_POLL_OK;
-			}
-		}
-	}
-
-	if (ptimeout) return EV_POLL_TIMEOUT;
-	return EV_POLL_EMPTY;
+	return EV_ETIMEDOUT;
 }
 
-static ev_code_t evi_pl_impl_init(ev_t ev) {
-	ev->async->fds = NULL;
-	ev->async->fds_cap = 0;
-	ev->async->req_head = NULL;
+static ev_code_t evi_queue_impl_init(ev_queue_t queue) {
+	queue->impl.fds = NULL;
+	queue->impl.fds_cap = 0;
+	queue->impl.head = NULL;
 
 	return EV_OK;
 }
-static ev_code_t evi_pl_impl_free(ev_t ev) {
-	(void)ev;
+static ev_code_t evi_queue_impl_free(ev_queue_t queue) {
+	(void)queue;
 	return EV_OK;
 }
