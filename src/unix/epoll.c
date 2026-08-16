@@ -15,7 +15,6 @@
 
 #include "./impl.h"
 #include "./pollish.c"
-#include "./pollish.c"
 
 typedef struct {
 	int fd;

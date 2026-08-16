@@ -22,6 +22,7 @@ struct ev_fd {
 	bool owned;
 
 	evi_fd_impl_t impl;
+	evi_fd_ioq_t ioq;
 };
 
 struct ev_dir {
@@ -30,7 +31,7 @@ struct ev_dir {
 
 	ev_req_t head;
 
-	struct evi_dir_impl impl;
+	evi_dir_impl_t impl;
 };
 
 struct ev_proc {
@@ -39,5 +40,5 @@ struct ev_proc {
 
 	ev_req_t head;
 
-	struct evi_proc_impl impl;
+	evi_proc_impl_t impl;
 };

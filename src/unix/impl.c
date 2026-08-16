@@ -49,9 +49,105 @@ static ev_mutex_t _core_sig_mut;
 static size_t _core_sig_counts[EV_SIGUSR2 + 1];
 static sigset_t _core_sig_set;
 
+static char *_evi_generic_getenvpath(const char *suffix) {
+	struct passwd resbuf[1];
+	struct passwd *ppwd;
+	char *buff = malloc(PATH_MAX);
+	if (!buff) return NULL;
+
+	size_t buffn = PATH_MAX;
+
+	while (true) {
+		getpwuid_r(getuid(), resbuf, buff, buffn, &ppwd);
+		if (ppwd) break;
+		if (errno == ERANGE) {
+			buffn *= 2;
+			free(buff);
+			buff = malloc(buffn);
+			if (!buff) return NULL;
+		}
+		else {
+			free(buff);
+			return NULL;
+		}
+	}
+
+	if (suffix) {
+		char *res = malloc(strlen(ppwd->pw_dir) + strlen(suffix) + 1);
+		if (!res) return NULL;
+
+		strcpy(res, ppwd->pw_dir);
+		strcat(res, suffix);
+		free(buff);
+		return res;
+	}
+	else {
+		char *res = malloc(strlen(ppwd->pw_dir) + 1);
+		strcpy(res, ppwd->pw_dir);
+		free(buff);
+		return res;
+	}
+}
+static char *_evi_unix_getpath(const char *envname, const char *suffix) {
+	const char *env = getenv(envname);
+	if (env && *env) {
+		char *res = malloc(strlen(env) + 1);
+		if (!res) return NULL;
+
+		strcpy(res, env);
+		return res;
+	}
+
+	return _evi_generic_getenvpath(suffix);
+}
+
+// Equivalent to socket(). The created socket is stored in `socket`
+static int _evi_unix_socket_new(ev_proto_t proto, ev_addr_type_t addr) {
+	return socket(
+		addr == EV_ADDR_IPV4 ? AF_INET : AF_INET6,
+		proto == EV_PROTO_UDP ? SOCK_DGRAM : SOCK_STREAM,
+		proto == EV_PROTO_UDP ? IPPROTO_UDP : IPPROTO_TCP
+	);
+}
+
+static int _evi_unix_mkstd(bool in, int *pparent, int *pchild, ev_fd_t *pres) {
+	ev_fd_t res = malloc(sizeof *res);
+	if (!res) return -1;
+
+	int pipe_fd[2];
+	if (pipe(pipe_fd) < 0) {
+		free(res);
+		return -1;
+	}
+
+	if (in) {
+		*pparent = pipe_fd[1];
+		*pchild = pipe_fd[0];
+	}
+	else {
+		*pparent = pipe_fd[0];
+		*pchild = pipe_fd[1];
+	}
+
+	*pres = res;
+
+	return 0;
+}
+
+static void _evi_sig_init() {
+	// TODO: do with CAS
+	if (!_core_sig_init) {
+		_core_sig_init = true;
+
+		ev_mutex_new(_core_sig_mut);
+		memset(_core_sig_counts, 0, sizeof _core_sig_counts);
+		sigemptyset(&_core_sig_set);
+	}
+}
+
 static bool evi_unix_isfd(ev_fd_t fd) {
 	#ifndef EV_USE_LINUX
-		return !fd->is_at;
+		return !fd->impl.is_at;
 	#else
 		(void)fd;
 		return true;
@@ -61,18 +157,24 @@ static void evi_unix_mkfd(ev_filelist_t fl, ev_fd_t res, int fd) {
 	res->owned = true;
 	res->impl.fd = fd;
 	#ifndef EV_USE_LINUX
-		res->impl.is_fd = true;
+		res->impl.is_at = false;
 	#endif
 
 	evi_dlist_add(fl, fl->fd_head, res);
 }
 #ifndef EV_USE_LINUX
-static void evi_unix_mkat(ev_filelist_t fl, ev_fd_t res, const char *at) {
+static bool evi_unix_mkat(ev_filelist_t fl, ev_fd_t res, const char *path) {
+	char *at = malloc(strlen(path) + 1);
+	if (!at) return false;
+
+	strcpy(res->impl.at, path);
+
 	res->owned = true;
 	res->impl.at = at;
-	res->impl.is_fd = false;
+	res->impl.is_at = true;
 
 	evi_dlist_add(fl, fl->fd_head, res);
+	return true;
 }
 #endif
 
@@ -305,91 +407,6 @@ static void evi_unix_conv_sockaddr(struct sockaddr_storage *sockaddr, ev_addr_t 
 	}
 }
 
-static char *evi_generic_getenvpath(const char *suffix) {
-	struct passwd resbuf[1];
-	struct passwd *ppwd;
-	char *buff = malloc(PATH_MAX);
-	if (!buff) return NULL;
-
-	size_t buffn = PATH_MAX;
-
-	while (true) {
-		getpwuid_r(getuid(), resbuf, buff, buffn, &ppwd);
-		if (ppwd) break;
-		if (errno == ERANGE) {
-			buffn *= 2;
-			free(buff);
-			buff = malloc(buffn);
-			if (!buff) return NULL;
-		}
-		else {
-			free(buff);
-			return NULL;
-		}
-	}
-
-	if (suffix) {
-		char *res = malloc(strlen(ppwd->pw_dir) + strlen(suffix) + 1);
-		if (!res) return NULL;
-
-		strcpy(res, ppwd->pw_dir);
-		strcat(res, suffix);
-		free(buff);
-		return res;
-	}
-	else {
-		char *res = malloc(strlen(ppwd->pw_dir) + 1);
-		strcpy(res, ppwd->pw_dir);
-		free(buff);
-		return res;
-	}
-}
-static char *evi_unix_getpath(const char *envname, const char *suffix) {
-	const char *env = getenv(envname);
-	if (env && *env) {
-		char *res = malloc(strlen(env) + 1);
-		if (!res) return NULL;
-
-		strcpy(res, env);
-		return res;
-	}
-
-	return evi_generic_getenvpath(suffix);
-}
-
-// Equivalent to socket(). The created socket is stored in `socket`
-static int evi_unix_socket_new(ev_proto_t proto, ev_addr_type_t addr) {
-	return socket(
-		addr == EV_ADDR_IPV4 ? AF_INET : AF_INET6,
-		proto == EV_PROTO_UDP ? SOCK_DGRAM : SOCK_STREAM,
-		proto == EV_PROTO_UDP ? IPPROTO_UDP : IPPROTO_TCP
-	);
-}
-
-static int evi_unix_mkstd(bool in, int *pparent, int *pchild, ev_fd_t *pres) {
-	ev_fd_t res = malloc(sizeof *res);
-	if (!res) return -1;
-
-	int pipe_fd[2];
-	if (pipe(pipe_fd) < 0) {
-		free(res);
-		return -1;
-	}
-
-	if (in) {
-		*pparent = pipe_fd[1];
-		*pchild = pipe_fd[0];
-	}
-	else {
-		*pparent = pipe_fd[0];
-		*pchild = pipe_fd[1];
-	}
-
-	*pres = res;
-
-	return 0;
-}
-
 ev_code_t ev_fd_new(ev_filelist_t fl, ev_fd_t *pres, uint64_t fd, bool owned) {
 	ev_fd_t res = malloc(sizeof *res);
 	if (!res) return EV_ENOMEM;
@@ -406,10 +423,12 @@ void ev_fd_close(ev_fd_t fd) {
 		if (fd->impl.is_at) {
 			free(fd->impl.at);
 		}
+		else
 		#endif
-
-		while (close(fd->impl.fd) < 0) {
-			if (errno != EINTR) return;
+		{
+			while (close(fd->impl.fd) < 0) {
+				if (errno != EINTR) return;
+			}
 		}
 	}
 
@@ -446,9 +465,9 @@ ev_code_t ev_stat(ev_fd_t fd, ev_stat_t *buff) {
 		if (fstat(fd->impl.fd, &res) < 0) return evi_unix_conv_errno(errno);
 	}
 	#ifndef EV_USE_LINUX
-	else (fd->core.kind == EVI_UNIX_AT) {
+	else {
 		// TODO: respect NOFOLLOW
-		if (lstat(fd->core.fd, &res) < 0) return evi_unix_conv_errno(errno);
+		if (lstat(fd->impl.at, &res) < 0) return evi_unix_conv_errno(errno);
 	}
 	#endif
 
@@ -546,9 +565,7 @@ ev_code_t ev_file_open(ev_filelist_t fl, ev_fd_t *pres, const char *path, ev_ope
 		if (flags == EV_OPEN_STAT) {
 			close(fd);
 
-			char *at = malloc(strlen(path) + 1);
-			strcpy(res->impl.at, path);
-			evi_unix_mkat(fl, res, at);
+			if (!evi_unix_mkat(fl, res, path)) return EV_ENOMEM;
 
 			*pres = res;
 			return EV_OK;
@@ -585,7 +602,7 @@ ev_code_t ev_file_chmod(ev_fd_t fd, int mode) {
 	}
 	#ifndef EV_USE_LINUX
 	else {
-		if (chmod(hnd->impl.at, mode) < 0) return evi_unix_conv_errno(errno);
+		if (chmod(fd->impl.at, mode) < 0) return evi_unix_conv_errno(errno);
 	}
 	#endif
 
@@ -597,7 +614,7 @@ ev_code_t ev_file_chown(ev_fd_t fd, int uid, int gid) {
 	}
 	#ifndef EV_USE_LINUX
 	else {
-		if (chown(hnd->impl.at, uid, gid) < 0) return evi_unix_conv_errno(errno);
+		if (chown(fd->impl.at, uid, gid) < 0) return evi_unix_conv_errno(errno);
 	}
 	#endif
 
@@ -661,7 +678,7 @@ ev_code_t ev_socket_connect(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, e
 	struct sockaddr_storage arg_addr;
 	int len = evi_unix_conv_addr(addr, port, &arg_addr);
 
-	int sock = evi_unix_socket_new(proto, addr.type);
+	int sock = _evi_unix_socket_new(proto, addr.type);
 	if (sock < 0) goto err_socket;
 
 	if (connect(sock, (void*)&arg_addr, len) < 0) goto err_connect;
@@ -680,7 +697,7 @@ ev_code_t ev_socket_bind(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, ev_a
 	ev_fd_t server = malloc(sizeof *server);
 	if (!server) return EV_ENOMEM;
 
-	int sock = evi_unix_socket_new(proto, addr.type);
+	int sock = _evi_unix_socket_new(proto, addr.type);
 	if (sock < 0) goto err_socket;
 
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &(int) { 1 }, sizeof(int)) < 0) goto err_setsockopt;
@@ -810,13 +827,13 @@ ev_code_t ev_proc_spawn(
 	if (fcntl(status_pipe[1], F_SETFL, O_NONBLOCK) < 0) goto err_fnctl_status;
 
 	if (pin) {
-		if (evi_unix_mkstd(true, &in_parent, &in_child, &res_in) < 0) goto err_mkstd_in;
+		if (_evi_unix_mkstd(true, &in_parent, &in_child, &res_in) < 0) goto err_mkstd_in;
 	}
 	if (pout) {
-		if (evi_unix_mkstd(false, &out_parent, &out_child, &res_in) < 0) goto err_mkstd_out;
+		if (_evi_unix_mkstd(false, &out_parent, &out_child, &res_in) < 0) goto err_mkstd_out;
 	}
 	if (perr) {
-		if (evi_unix_mkstd(false, &err_parent, &err_child, &res_in) < 0) goto err_mkstd_err;
+		if (_evi_unix_mkstd(false, &err_parent, &err_child, &res_in) < 0) goto err_mkstd_err;
 	}
 
 	pid_t pid = fork();
@@ -951,19 +968,8 @@ ev_code_t ev_proc_disown(ev_proc_t proc) {
 	return 0;
 }
 
-static void evi_sig_init() {
-	// TODO: do with CAS
-	if (!_core_sig_init) {
-		_core_sig_init = true;
-
-		ev_mutex_new(_core_sig_mut);
-		memset(_core_sig_counts, 0, sizeof _core_sig_counts);
-		sigemptyset(&_core_sig_set);
-	}
-}
-
 ev_code_t ev_sig_on(ev_signo_t sig) {
-	evi_sig_init();
+	_evi_sig_init();
 
 	ev_mutex_lock(_core_sig_mut);
 
@@ -1019,7 +1025,7 @@ ev_code_t ev_sig_on(ev_signo_t sig) {
 	return EV_OK;
 }
 ev_code_t ev_sig_off(ev_signo_t sig) {
-	evi_sig_init();
+	_evi_sig_init();
 
 	ev_mutex_lock(_core_sig_mut);
 
@@ -1077,7 +1083,7 @@ ev_code_t ev_sig_off(ev_signo_t sig) {
 	return EV_OK;
 }
 ev_code_t ev_sig_wait(ev_signo_t *pres) {
-	evi_sig_init();
+	_evi_sig_init();
 
 	sigset_t old, add_pwr, full;
 	sigfillset(&full);
@@ -1109,28 +1115,28 @@ ev_code_t ev_sig_wait(ev_signo_t *pres) {
 ev_code_t ev_getpath(ev_path_type_t type, char **pres) {
 	switch (type) {
 		case EV_PATH_HOME: {
-			char *res = evi_generic_getenvpath(NULL);
+			char *res = _evi_generic_getenvpath(NULL);
 			if (!res) return evi_unix_conv_errno(errno);
 
 			*pres = res;
 			return EV_OK;
 		}
 		case EV_PATH_CACHE: {
-			char *res = evi_unix_getpath("XDG_CACHE_HOME", "/.cache");
+			char *res = _evi_unix_getpath("XDG_CACHE_HOME", "/.cache");
 			if (!res) return evi_unix_conv_errno(errno);
 
 			*pres = res;
 			return EV_OK;
 		}
 		case EV_PATH_CONFIG: {
-			char *res = evi_unix_getpath("XDG_CONFIG_HOME", "/.config");
+			char *res = _evi_unix_getpath("XDG_CONFIG_HOME", "/.config");
 			if (!res) return evi_unix_conv_errno(errno);
 
 			*pres = res;
 			return EV_OK;
 		}
 		case EV_PATH_DATA: {
-			char *res = evi_unix_getpath("XDG_DATA_HOME", "/.local/share");
+			char *res = _evi_unix_getpath("XDG_DATA_HOME", "/.local/share");
 			if (!res) return evi_unix_conv_errno(errno);
 
 			*pres = res;

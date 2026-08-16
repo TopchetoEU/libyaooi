@@ -24,15 +24,13 @@ typedef struct {
 			char *at;
 		#endif
 	};
-
-	evi_fd_ioq_t ioq;
 } evi_fd_impl_t;
-struct evi_dir_impl {
+typedef struct {
 	DIR *dir;
-};
-struct evi_proc_impl {
+} evi_dir_impl_t;
+typedef struct {
 	pid_t pid;
-};
+} evi_proc_impl_t;
 
 struct ev_tty_raw {
 	int fd;

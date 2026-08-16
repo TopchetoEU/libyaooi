@@ -61,13 +61,13 @@ static ev_code_t _evi_pl_req_start(ev_req_t req) {
 	ev_fd_t fd = req->running.ioq.fd;
 
 	switch (_evi_pl_tomask(req->running.ioq.kind)) {
-		case EVI_PL_READABLE: fd->impl.ioq.read_n++; break;
-		case EVI_PL_WRITABLE: fd->impl.ioq.write_n++; break;
+		case EVI_PL_READABLE: fd->ioq.read_n++; break;
+		case EVI_PL_WRITABLE: fd->ioq.write_n++; break;
 	}
 
 	evi_pl_evn_mask_t mask = 0;
-	if (fd->impl.ioq.read_n) mask |= EVI_PL_READABLE;
-	if (fd->impl.ioq.write_n) mask |= EVI_PL_WRITABLE;
+	if (fd->ioq.read_n) mask |= EVI_PL_READABLE;
+	if (fd->ioq.write_n) mask |= EVI_PL_WRITABLE;
 
 	ev_code_t code = evi_pl_impl_setmask(req->queue, fd, fd->impl.fd, mask);
 	evi_req_begin(req, _evi_pl_req_cancel);
@@ -84,13 +84,13 @@ static ev_code_t _evi_pl_req_stop(ev_req_t req) {
 	ev_fd_t fd = req->running.ioq.fd;
 
 	switch (_evi_pl_tomask(req->running.ioq.kind)) {
-		case EVI_PL_READABLE: fd->impl.ioq.read_n--; break;
-		case EVI_PL_WRITABLE: fd->impl.ioq.write_n--; break;
+		case EVI_PL_READABLE: fd->ioq.read_n--; break;
+		case EVI_PL_WRITABLE: fd->ioq.write_n--; break;
 	}
 
 	evi_pl_evn_mask_t mask = 0;
-	if (fd->impl.ioq.read_n) mask |= EVI_PL_READABLE;
-	if (fd->impl.ioq.write_n) mask |= EVI_PL_WRITABLE;
+	if (fd->ioq.read_n) mask |= EVI_PL_READABLE;
+	if (fd->ioq.write_n) mask |= EVI_PL_WRITABLE;
 
 	return evi_pl_impl_setmask(req->queue, fd, fd->impl.fd, mask);
 }
