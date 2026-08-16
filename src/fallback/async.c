@@ -16,7 +16,7 @@ an implementation of the ev.h interface function.
 #include <stddef.h>
 #include <stdlib.h>
 
-#include "./impl.c"
+#include "../impl.c"
 
 #define EVI_COMMA ,
 #define EVI_SEMICOLON ;

@@ -1,24 +1,40 @@
 #pragma once
 
+#include <errno.h>
+#include <signal.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <ev/conf.h>
 #include <ev/errno.h>
+#include <ev/filelist.h>
+#include <ev/queue.h>
+#include <ev/io.h>
 
 #include "./impl.h" // IWYU pragma: export
 
-#include "../../core/time.c"
-#include "./utils.c"
+#include "../utils/lists.h"
 
-#ifndef __USE_GNU
+#include "../filelist.c"
+#include "../time.c"
+#include "../queue.c"
+#include "../fallback/queue.c" // IWYU pragma: export
+
+#ifdef WIN32
+	extern char **_environ;
+	#define environ _environ
+#elif !defined __USE_GNU
 	extern char **environ;
 #endif
 
-static char *evi_generic_getenvpath(const char *envname, const char *fallback, const char *suffix) {
+static void _evi_ansi_cancel(ev_req_t req) {
+	(void)req;
+}
+static char *_evi_generic_getenvpath(const char *envname, const char *fallback, const char *suffix) {
 	const char *home = getenv(envname);
 	if (!home) home = fallback;
 
@@ -37,43 +53,203 @@ static char *evi_generic_getenvpath(const char *envname, const char *fallback, c
 	}
 }
 
-ev_handle_t ev_handle_new(ev_t ev, uint64_t fd) {
-	(void)ev;
-	return evi_generic_mkfd((FILE*)fd);
+static void evi_generic_mkfd(ev_filelist_t fl, ev_fd_t res, FILE *f) {
+	res->owned = true;
+	res->impl.kind = EVI_ANSI_FILE;
+	res->impl.file = f;
+
+	evi_dlist_add(fl, fl->fd_head, res);
+}
+static bool evi_generic_mkat(ev_filelist_t fl, ev_fd_t res, const char *path) {
+	size_t len = strlen(path);
+
+	char *at = malloc(len + 1);
+	if (!at) return false;
+
+	memcpy(at, path, len + 1);
+
+	res->owned = true;
+	res->impl.kind = EVI_ANSI_AT;
+	res->impl.at = at;
+
+	evi_dlist_add(fl, fl->fd_head, res);
+	return true;
+}
+static int evi_generic_isfd(ev_fd_t fd) {
+	return fd->impl.kind == EVI_ANSI_FILE;
 }
 
-ev_code_t evs_read(ev_handle_t fd, char *buff, size_t *pn) {
+static ev_code_t evi_generic_conv_errno(int err, ev_code_t fallback) {
+	switch (err) {
+		#ifdef EPERM
+			case EPERM: return EV_EPERM;
+		#endif
+		#ifdef ENOENT
+			case ENOENT: return EV_ENOENT;
+		#endif
+		#ifdef ESRCH
+			case ESRCH: return EV_ESRCH;
+		#endif
+		#ifdef EINTR
+			case EINTR: return EV_EINTR;
+		#endif
+		#ifdef EIO
+			case EIO: return EV_EIO;
+		#endif
+		#ifdef ENXIO
+			case ENXIO: return EV_ENXIO;
+		#endif
+		#ifdef E2BIG
+			case E2BIG: return EV_E2BIG;
+		#endif
+		#ifdef ENOEXEC
+			case ENOEXEC: return EV_ENOEXEC;
+		#endif
+		#ifdef EBADF
+			case EBADF: return EV_EBADF;
+		#endif
+		#ifdef ECHILD
+			case ECHILD: return EV_ECHILD;
+		#endif
+		#ifdef EAGAIN
+			case EAGAIN: return EV_EAGAIN;
+		#endif
+		#ifdef ENOMEM
+			case ENOMEM: return EV_ENOMEM;
+		#endif
+		#ifdef EACCES
+			case EACCES: return EV_EACCES;
+		#endif
+		#ifdef EFAULT
+			case EFAULT: return EV_EFAULT;
+		#endif
+		#ifdef ENOTBLK
+			case ENOTBLK: return EV_ENOTBLK;
+		#endif
+		#ifdef EBUSY
+			case EBUSY: return EV_EBUSY;
+		#endif
+		#ifdef EEXIST
+			case EEXIST: return EV_EEXIST;
+		#endif
+		#ifdef EXDEV
+			case EXDEV: return EV_EXDEV;
+		#endif
+		#ifdef ENODEV
+			case ENODEV: return EV_ENODEV;
+		#endif
+		#ifdef ENOTDIR
+			case ENOTDIR: return EV_ENOTDIR;
+		#endif
+		#ifdef EISDIR
+			case EISDIR: return EV_EISDIR;
+		#endif
+		#ifdef EINVAL
+			case EINVAL: return EV_EINVAL;
+		#endif
+		#ifdef ENFILE
+			case ENFILE: return EV_ENFILE;
+		#endif
+		#ifdef EMFILE
+			case EMFILE: return EV_EMFILE;
+		#endif
+		#ifdef ENOTTY
+			case ENOTTY: return EV_ENOTTY;
+		#endif
+		#ifdef ETXTBSY
+			case ETXTBSY: return EV_ETXTBSY;
+		#endif
+		#ifdef EFBIG
+			case EFBIG: return EV_EFBIG;
+		#endif
+		#ifdef ENOSPC
+			case ENOSPC: return EV_ENOSPC;
+		#endif
+		#ifdef ESPIPE
+			case ESPIPE: return EV_ESPIPE;
+		#endif
+		#ifdef EROFS
+			case EROFS: return EV_EROFS;
+		#endif
+		#ifdef EMLINK
+			case EMLINK: return EV_EMLINK;
+		#endif
+		#ifdef EPIPE
+			case EPIPE: return EV_EPIPE;
+		#endif
+		#ifdef EDOM
+			case EDOM: return EV_EDOM;
+		#endif
+		#ifdef ERANGE
+			case ERANGE: return EV_ERANGE;
+		#endif
+		default: return fallback;
+	}
+}
+
+ev_code_t ev_fd_new(ev_filelist_t fl, ev_fd_t *pres, uint64_t fd, bool owned) {
+	ev_fd_t res = malloc(sizeof *res);
+	if (!res) return EV_ENOMEM;
+
+	evi_generic_mkfd(fl, res, (FILE*)(size_t)fd);
+	res->owned = owned;
+	*pres = res;
+
+	return EV_OK;
+}
+void ev_fd_close(ev_fd_t fd) {
+	if (fd->owned) {
+		if (!evi_generic_isfd(fd)) {
+			free(fd->impl.at);
+		}
+		else {
+			// Closing is best-effort
+			#ifdef EINTR
+				while (fclose(fd->impl.file) < 0) {
+					if (errno != EINTR) break;
+				}
+			#else
+				fclose(fd->impl.file);
+			#endif
+		}
+	}
+
+	evi_dlist_del(fl, fd);
+	free(fd);
+}
+
+ev_code_t ev_read(ev_fd_t fd, char *buff, size_t *pn) {
 	if (!evi_generic_isfd(fd)) return EV_EBADF;
 
-	clearerr(evi_generic_fd(fd));
-	size_t n = fread(buff, *pn, 1, evi_generic_fd(fd));
-	if (ferror(evi_generic_fd(fd))) return EV_EIO;
+	clearerr(fd->impl.file);
+	size_t n = fread(buff, *pn, 1, fd->impl.file);
+	if (ferror(fd->impl.file)) return EV_EIO;
 
 	*pn = n;
 	return EV_OK;
 }
-ev_code_t evs_write(ev_handle_t fd, char *buff, size_t *pn) {
+ev_code_t ev_write(ev_fd_t fd, char *buff, size_t *pn) {
 	if (!evi_generic_isfd(fd)) return EV_EBADF;
 
 	clearerr((FILE*)fd);
 	size_t n = fwrite(buff, *pn, 1, (FILE*)fd);
-	if (ferror(evi_generic_fd(fd))) return EV_EIO;
+	if (ferror(fd->impl.file)) return EV_EIO;
 
 	*pn = n;
 	return EV_OK;
 }
-ev_code_t evs_sync(ev_handle_t fd) {
+ev_code_t ev_sync(ev_fd_t fd) {
 	if (!evi_generic_isfd(fd)) return EV_EBADF;
-	if (fflush(evi_generic_fd(fd)) < 0) return EV_EIO;
+	if (fflush(fd->impl.file) < 0) return EV_EIO;
 	return EV_OK;
 }
-ev_code_t evs_stat(ev_handle_t fd, ev_stat_t *buff) {
+ev_code_t ev_stat(ev_fd_t fd, ev_stat_t *buff) {
 	FILE *f;
 	bool owned = false;
 
-	if (evi_generic_isfd(fd)) f = evi_generic_fd(fd);
+	if (evi_generic_isfd(fd)) f = fd->impl.file;
 	else {
-		f = fopen(evi_generic_at(fd), "r");
+		f = fopen(fd->impl.at, "r");
 		owned = true;
 		if (!f) return EV_ENOENT;
 	}
@@ -100,13 +276,47 @@ ev_code_t evs_stat(ev_handle_t fd, ev_stat_t *buff) {
 	if (owned) fclose(f);
 	return EV_OK;
 }
-void evs_close(ev_handle_t fd) {
-	if (evi_generic_isfd(fd)) fclose(evi_generic_fd(fd));
-	free(fd);
+
+ev_code_t ev_tty_in(ev_filelist_t fl, ev_fd_t *pres) {
+	return ev_fd_new(fl, pres, (uint64_t)(size_t)stdin, false);
+}
+ev_code_t ev_tty_out(ev_filelist_t fl, ev_fd_t *pres) {
+	return ev_fd_new(fl, pres, (uint64_t)(size_t)stdout, false);
+}
+ev_code_t ev_tty_err(ev_filelist_t fl, ev_fd_t *pres) {
+	return ev_fd_new(fl, pres, (uint64_t)(size_t)stderr, false);
+}
+ev_code_t ev_tty_raw(ev_fd_t tty, ev_tty_raw_t *pres) {
+	(void)tty, (void)pres;
+	return EV_ENOTSUP;
+}
+ev_code_t ev_tty_rawend(ev_tty_raw_t rawmode) {
+	(void)rawmode;
+	return EV_ENOTSUP;
 }
 
-ev_code_t evs_file_open(ev_handle_t *pres, const char *path, ev_open_flags_t flags, int mode) {
+ev_code_t ev_file_remove(const char *path) {
+	if (remove(path) < 0) return evi_generic_conv_errno(errno, EV_ENOENT);
+	return EV_OK;
+}
+ev_code_t ev_file_symlink(const char *path, const char *target) {
+	(void)path, (void)target;
+	return EV_ENOTSUP;
+}
+ev_code_t ev_file_hardlink(const char *path, const char *target) {
+	(void)path, (void)target;
+	return EV_ENOTSUP;
+}
+ev_code_t ev_file_readlink(const char *path, char **pres) {
+	(void)path, (void)pres;
+	return EV_ENOTSUP;
+}
+
+ev_code_t ev_file_open(ev_filelist_t fl, ev_fd_t *pres, const char *path, ev_open_flags_t flags, int mode) {
 	(void)mode;
+
+	ev_fd_t res = malloc(sizeof *res);
+	if (!res) return EV_ENOMEM;
 
 	flags &= ~(EV_OPEN_SHARED | EV_OPEN_DIRECT);
 
@@ -114,8 +324,8 @@ ev_code_t evs_file_open(ev_handle_t *pres, const char *path, ev_open_flags_t fla
 
 	switch ((int)flags) {
 		case EV_OPEN_STAT: {
-			*pres = evi_generic_mkat(path);
-			if (!*pres) return EV_ENOMEM;
+			if (!evi_generic_mkat(fl, res, path)) return EV_ENOMEM;
+			*pres = res;
 			return EV_OK;
 		}
 		case EV_OPEN_READ: {
@@ -146,141 +356,105 @@ ev_code_t evs_file_open(ev_handle_t *pres, const char *path, ev_open_flags_t fla
 	FILE *f = fopen(path, open_mode);
 	if (!f) return EV_ENOENT;
 
-	*pres = evi_generic_mkfd(f);
-	if (!*pres) return EV_ENOMEM;
+	evi_generic_mkfd(fl, res, f);
+
+	*pres = res;
 	return EV_OK;
 }
-ev_code_t evs_file_read(ev_handle_t fd, char *buff, size_t *pn, size_t offset) {
+ev_code_t ev_file_read(ev_fd_t fd, char *buff, size_t *pn, size_t offset) {
 	if (!evi_generic_isfd(fd)) return EV_EBADF;
 
-	size_t curr = ftell(evi_generic_fd(fd));
-	if (fseek(evi_generic_fd(fd), offset, SEEK_SET) < 0) return EV_ESPIPE;
+	size_t curr = ftell(fd->impl.file);
+	if (fseek(fd->impl.file, offset, SEEK_SET) < 0) return EV_ESPIPE;
 
-	size_t n = fread(buff, 1, *pn, evi_generic_fd(fd));
-	if (ferror(evi_generic_fd(fd))) return EV_EIO;
+	size_t n = fread(buff, 1, *pn, fd->impl.file);
+	if (ferror(fd->impl.file)) return EV_EIO;
 
-	if (fseek(evi_generic_fd(fd), curr, SEEK_SET) < 0) return EV_ESPIPE;
+	if (fseek(fd->impl.file, curr, SEEK_SET) < 0) return EV_ESPIPE;
 
 	*pn = n;
 	return EV_OK;
 }
-ev_code_t evs_file_write(ev_handle_t fd, char *buff, size_t *pn, size_t offset) {
+ev_code_t ev_file_write(ev_fd_t fd, char *buff, size_t *pn, size_t offset) {
 	if (!evi_generic_isfd(fd)) return EV_EBADF;
 
-	size_t curr = ftell(evi_generic_fd(fd));
-	if (fseek(evi_generic_fd(fd), offset, SEEK_SET) < 0) return EV_ESPIPE;
+	size_t curr = ftell(fd->impl.file);
+	if (fseek(fd->impl.file, offset, SEEK_SET) < 0) return EV_ESPIPE;
 
-	size_t n = fwrite(buff, 1, *pn, evi_generic_fd(fd));
-	if (ferror(evi_generic_fd(fd))) return EV_EIO;
+	size_t n = fwrite(buff, 1, *pn, fd->impl.file);
+	if (ferror(fd->impl.file)) return EV_EIO;
 
-	if (fseek(evi_generic_fd(fd), curr, SEEK_SET) < 0) return EV_ESPIPE;
+	if (fseek(fd->impl.file, curr, SEEK_SET) < 0) return EV_ESPIPE;
 
 	*pn = n;
 	return EV_OK;
 }
-ev_code_t evs_file_chmod(ev_handle_t hnd, int mode) {
+ev_code_t ev_file_chmod(ev_fd_t fd, int mode) {
+	(void)fd, (void)mode;
 	return EV_OK;
 }
-ev_code_t evs_file_chown(ev_handle_t hnd, int uid, int gid) {
-	return EV_OK;
-}
-
-ev_code_t evs_file_symlink(const char *path, const char *target) {
-	return EV_ENOTSUP;
-}
-ev_code_t evs_file_hardlink(const char *path, const char *target) {
-	return EV_ENOTSUP;
-}
-ev_code_t evs_file_readlink(const char *path, char **pres) {
-	return EV_ENOTSUP;
-}
-ev_code_t evs_file_delete(const char *path) {
-	if (remove(path) < 0) return EV_ENOENT;
+ev_code_t ev_file_chown(ev_fd_t fd, int uid, int gid) {
+	(void)fd, (void)uid, (void)gid;
 	return EV_OK;
 }
 
-ev_code_t evs_dir_new(const char *path, int mode) {
+ev_code_t ev_dir_new(const char *path, int mode) {
 	(void)path;
 	(void)mode;
 	return EV_ENOTSUP;
 }
-ev_code_t evs_dir_open(ev_dir_t *pres, const char *path) {
-	(void)pres;
-	(void)path;
+ev_code_t ev_dir_open(ev_filelist_t fl, ev_dir_t *pres, const char *path) {
+	(void)fl, (void)pres, (void)path;
 	return EV_ENOTSUP;
 }
-ev_code_t evs_dir_next(ev_dir_t dir, char **pname) {
-	(void)dir;
-	(void)pname;
+ev_code_t ev_dir_next(ev_dir_t dir, char **pname) {
+	(void)dir, (void)pname;
 	return EV_ENOTSUP;
 }
 void evs_dir_close(ev_dir_t dir) {
 	(void)dir;
 }
 
-ev_code_t evs_socket_connect(ev_handle_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port) {
-	(void)pres;
-	(void)proto;
-	(void)addr;
-	(void)port;
+ev_code_t ev_socket_connect(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port) {
+	(void)fl, (void)pres, (void)proto, (void)addr, (void)port;
 	return EV_ENOTSUP;
 }
-ev_code_t evs_server_bind(ev_server_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port, size_t max_n) {
-	(void)max_n;
-	(void)pres;
-	(void)proto;
-	(void)addr;
-	(void)port;
+ev_code_t ev_socket_bind(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port, size_t max_n) {
+	(void)fl, (void)pres, (void)proto, (void)addr, (void)port, (void)max_n;
 	return EV_ENOTSUP;
 }
-ev_code_t evs_server_accept(ev_handle_t *pres, ev_addr_t *paddr, uint16_t *pport, ev_server_t server) {
-	(void)server;
-	(void)pres;
-	(void)paddr;
-	(void)pport;
+ev_code_t ev_socket_accept(ev_filelist_t fl, ev_fd_t server, ev_fd_t *pres, ev_addr_t *paddr, uint16_t *pport) {
+	(void)fl, (void)pres, (void)server, (void)paddr, (void)pport;
 	return EV_ENOTSUP;
 }
-void evs_server_close(ev_server_t server) {
-	(void)server;
+
+ev_code_t ev_dns_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_flags_t flags) {
+	(void)pres, (void)name, (void)flags;
+	return EV_ENOTSUP;
 }
 
 // Equivalent to posix's fork then exec
-ev_code_t evs_proc_spawn(
-	ev_proc_t *pres,
-	const char **argv, const char **env,
-	const char *cwd,
-	ev_spawn_stdio_flags_t in_flags, ev_handle_t *pin,
-	ev_spawn_stdio_flags_t out_flags, ev_handle_t *pout,
-	ev_spawn_stdio_flags_t err_flags, ev_handle_t *perr
+ev_code_t ev_proc_spawn(
+	ev_filelist_t fl, ev_proc_t *pres,
+	const char **argv, const char **env, const char *cwd,
+	ev_fd_t *pin, ev_fd_t *pout, ev_fd_t *perr
 ) {
-	(void)perr;
-	(void)pres;
-	(void)argv;
-	(void)env;
-	(void)cwd;
-	(void)in_flags;
-	(void)pin;
-	(void)out_flags;
-	(void)pout;
-	(void)err_flags;
+	(void)fl, (void)pres;
+	(void)argv, (void)env, (void)cwd;
+	(void)pin, (void)pout, (void)perr;
+	// TODO: implement with `popen`
 	return EV_ENOTSUP;
 }
-ev_code_t evs_proc_wait(ev_proc_t proc, int *psig, int *pcode) {
-	(void)pcode;
+ev_code_t ev_proc_wait(ev_proc_t proc, int *psig, int *pcode) {
+	(void)pcode, (void)proc, (void)psig;
+	return EV_ENOTSUP;
+}
+ev_code_t ev_proc_disown(ev_proc_t proc) {
 	(void)proc;
-	(void)psig;
 	return EV_ENOTSUP;
 }
 
-ev_code_t evs_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_flags_t flags) {
-	(void)pres;
-	(void)name;
-	(void)flags;
-	return EV_ENOTSUP;
-}
-
-ev_code_t ev_sig_on(ev_t ev, ev_signo_t sig) {
-	(void)ev;
+ev_code_t ev_sig_on(ev_signo_t sig) {
 	switch (sig) {
 		case EV_SIGINT: signal(SIGINT, SIG_IGN); break;
 		case EV_SIGABRT: signal(SIGABRT, SIG_IGN); break;
@@ -294,8 +468,7 @@ ev_code_t ev_sig_on(ev_t ev, ev_signo_t sig) {
 
 	return EV_OK;
 }
-ev_code_t ev_sig_off(ev_t ev, ev_signo_t sig) {
-	(void)ev;
+ev_code_t ev_sig_off(ev_signo_t sig) {
 	switch (sig) {
 		case EV_SIGINT: signal(SIGINT, SIG_DFL); break;
 		case EV_SIGABRT: signal(SIGABRT, SIG_DFL); break;
@@ -309,44 +482,41 @@ ev_code_t ev_sig_off(ev_t ev, ev_signo_t sig) {
 
 	return EV_OK;
 }
-ev_code_t evs_sig_wait(ev_signo_t *pres) {
+ev_code_t ev_sig_wait(ev_signo_t *pres) {
+	(void)pres;
 	// We can't do much more here...
 	while (true);
 }
-ev_code_t ev_sig_wait(ev_t ev, void *udata, ev_signo_t *pres) {
-	ev_begin(ev);
-	return EV_OK;
-}
 
-ev_code_t evs_getpath(char **pres, ev_path_type_t type) {
+ev_code_t ev_getpath(ev_path_type_t type, char **pres) {
 	switch (type) {
 		case EV_PATH_HOME: {
-			*pres = evi_generic_getenvpath("HOME", ".", NULL);
+			*pres = _evi_generic_getenvpath("HOME", ".", NULL);
 			if (!*pres) return EV_ENOMEM;
 			return EV_OK;
 		}
 		case EV_PATH_CACHE: {
-			*pres = evi_generic_getenvpath("XDG_CACHE_HOME", ".", "/.cache");
+			*pres = _evi_generic_getenvpath("XDG_CACHE_HOME", ".", "/.cache");
 			if (!*pres) return EV_ENOMEM;
 			return EV_OK;
 		}
 		case EV_PATH_CONFIG: {
-			*pres = evi_generic_getenvpath("XDG_CONFIG_HOME", ".", "/.config");
+			*pres = _evi_generic_getenvpath("XDG_CONFIG_HOME", ".", "/.config");
 			if (!*pres) return EV_ENOMEM;
 			return EV_OK;
 		}
 		case EV_PATH_DATA: {
-			*pres = evi_generic_getenvpath("XDG_DATA_HOME", ".", "/.local/share");
+			*pres = _evi_generic_getenvpath("XDG_DATA_HOME", ".", "/.local/share");
 			if (!*pres) return EV_ENOMEM;
 			return EV_OK;
 		}
 		case EV_PATH_RUNTIME: {
-			*pres = evi_generic_getenvpath("XDG_DATA_HOME", "/tmp", NULL);
+			*pres = _evi_generic_getenvpath("XDG_DATA_HOME", "/tmp", NULL);
 			if (!*pres) return EV_ENOMEM;
 			return EV_OK;
 		}
 		case EV_PATH_CWD: {
-			*pres = evi_generic_getenvpath("PWD", ".", NULL);
+			*pres = _evi_generic_getenvpath("PWD", ".", NULL);
 			if (!*pres) return EV_ENOMEM;
 			return EV_OK;
 		}
@@ -355,7 +525,7 @@ ev_code_t evs_getpath(char **pres, ev_path_type_t type) {
 	return EV_EINVAL;
 }
 
-ev_code_t evs_getenv(const char *name, char **pres) {
+ev_code_t ev_env_get(const char *name, char **pres) {
 	const char *val = getenv(name);
 	if (!val) {
 		*pres = NULL;
@@ -369,7 +539,7 @@ ev_code_t evs_getenv(const char *name, char **pres) {
 	*pres = res;
 	return EV_OK;
 }
-ev_code_t evs_setenv(const char *name, const char *val) {
+ev_code_t ev_env_set(const char *name, const char *val) {
 	if (!val) {
 		if (unsetenv(name) < 0) return EV_ENOMEM;
 	}
@@ -379,45 +549,52 @@ ev_code_t evs_setenv(const char *name, const char *val) {
 
 	return EV_OK;
 }
-ev_code_t evs_nextenv(void **pit, const char **ppair) {
+ev_code_t ev_nextenv(void **pit, const char **ppair) {
 	(void)pit;
 	*ppair = NULL;
 	return EV_OK;
 }
 
-ev_code_t ev_realtime(ev_time_t *pres) {
-	time_t now = time(NULL);
-	if (now == -1) return EV_EIO;
+ev_code_t ev_enviter_new(ev_enviter_t *pres) {
+	ev_enviter_t res = malloc(sizeof *res);
+	if (!res) return EV_ENOMEM;
 
-	*pres = (ev_time_t) { .sec = now, .nsec = 0 };
+	res->enviter = environ;
+
+	*pres = res;
 	return EV_OK;
 }
-ev_code_t ev_monotime(ev_time_t *pres) {
-	clock_t now = clock();
-	if (now == -1) return EV_EIO;
+ev_code_t ev_enviter_next(ev_enviter_t iter, const char **pres) {
+	char *pair = *iter->enviter;
+	if (pair) iter->enviter++;
 
-	*pres = (ev_time_t) { .sec = now / CLOCKS_PER_SEC, .nsec = now % CLOCKS_PER_SEC * 1000 };
+	*pres = pair;
 	return EV_OK;
 }
+void ev_enviter_close(ev_enviter_t iter) {
+	free(iter);
+}
 
-void evs_sleep(ev_time_t time) {
+ev_time_t ev_time(ev_clock_t kind) {
+	switch (kind) {
+		case EV_CLOCK_REALTIME: return (ev_time_t) { .sec = time(NULL), .nsec = 0 };
+		case EV_CLOCK_CPUTIME:
+		case EV_CLOCK_MONOTIME: {
+			clock_t now = clock();
+			return (ev_time_t) { .sec = now / CLOCKS_PER_SEC, .nsec = now % CLOCKS_PER_SEC * 1000 };
+		}
+		default: return (ev_time_t) { 0, 0 };
+	}
+}
+void ev_timesleep(ev_time_t time) {
 	// As we have no better option, we will do a spinwait
 	clock_t end = time.sec * CLOCKS_PER_SEC + time.nsec / 1000;
 	while (clock() < end);
 }
 
-static ev_code_t evi_sync_init(ev_t ev) {
-	ev->in = evi_generic_mkfd(stdin);
-	ev->out = evi_generic_mkfd(stdout);
-	ev->err = evi_generic_mkfd(stderr);
-
+#define evq_sig_wait(...) evq_sig_wait(__VA_ARGS__)
+ev_code_t (evq_sig_wait)(ev_req_t req, ev_signo_t *pres) {
+	(void)pres;
+	evi_req_begin(req, _evi_ansi_cancel);
 	return EV_OK;
 }
-static ev_code_t evi_sync_free(ev_t ev) {
-	free(ev->in);
-	free(ev->out);
-	free(ev->err);
-	return EV_OK;
-}
-
-#define EVI_ASYNC_SIG_WAIT

@@ -123,6 +123,8 @@
 		if (code == ETIMEDOUT) return EV_ETIMEDOUT;
 		return 0;
 	}
+#elif defined EV_USE_MULTITHREAD
+	#error Multithreading enabled on non-multithreaded platform
 #else
 	typedef struct {} ev_mutex_t[1];
 
