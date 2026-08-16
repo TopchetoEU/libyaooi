@@ -1,7 +1,6 @@
 #pragma once
 
-// Utility for poll-like (poll-ish) interfaces. The gist is that with this interface (unlike uring),
-// you will be notified that you can perform a certain IO operation without being blocked.
+// Utility for poll-like (poll-ish) interfaces. This abstracts basically all operations around a poll-like API, except the poll function itself
 
 #include <stdint.h>
 

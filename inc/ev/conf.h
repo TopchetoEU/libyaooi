@@ -33,7 +33,6 @@
 #endif
 #if defined EV_NO_USE_LINUX
 	#undef EV_USE_LINUX
-	#undef EV_USE_URING
 #endif
 
 // 3. Infer sensible defaults for features from target
@@ -42,9 +41,6 @@
 
 #ifdef EV_USE_LINUX
 	#define EV_USE_MULTITHREAD
-	// uring support is discontinued
-	// Enable yourself with -DEV_USE_URING, here be dragons
-	// #define EV_USE_URING
 	#define EV_USE_EPOLL
 #elif defined EV_USE_POSIX
 	#define EV_USE_MULTITHREAD
@@ -59,9 +55,6 @@
 
 // 4. Apply user blacklists for features
 
-#ifdef EV_NO_USE_URING
-	#undef EV_USE_URING
-#endif
 #ifdef EV_NO_USE_EPOLL
 	#undef EV_USE_EPOLL
 #endif
@@ -77,8 +70,6 @@
 #ifdef EV_NO_USE_PTRTAG
 	#undef EV_USE_PTRTAG
 #endif
-
-// 5. Add gnu sources on linux (required for uring)
 
 // Generic defines
 

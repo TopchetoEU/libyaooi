@@ -1,3 +1,5 @@
+**THIS IS A DEV BRANCH, EXCPECT STUFF TO BREAK!!!**
+
 libev is a dead-simple alternative to libuv for performing platform-specific operations in a non-blocking and platform-independent way.
 
 ## Core architecture
@@ -15,6 +17,20 @@ libuv has a notoriously difficult build process - in comparison, libev is a unit
 ## Why libuv?
 
 Make no mistake, libev is a hobby project and is largely untested, while libuv has been battle-tested for more than 10 years, so you can most likely count on it. Also, libev still doesn't offer support for some of the stuff libuv offers (but it is trivially simple to implement them, as libev exposes a `ev_exec` function, which executes a function in the threadpool of libev and returns the result in the message queue).
+
+## Supported async backends
+
+- epoll
+- poll
+- /dev/poll (planned)
+- kqueue (planned)
+- whatever windows offers (planned)
+
+## Supported systems
+
+- ANSI (very rudimentary, whatever ANSIC has)
+- Posix
+- Win32
 
 ## General pattern of usage
 

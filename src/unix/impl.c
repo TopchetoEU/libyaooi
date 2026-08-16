@@ -27,10 +27,6 @@
 #include <ev/errno.h>
 #include <ev/signo.h>
 
-#ifdef EV_USE_URING
-	#include <sys/signalfd.h>
-#endif
-
 #include "../utils/lists.h"
 #include "../utils/multithread.h"
 
@@ -1007,16 +1003,16 @@ ev_code_t ev_sig_on(ev_signo_t sig) {
 			return evi_unix_conv_errno(errno);
 		}
 
-		// Very bad solution, come up with a better one if u can
-		#ifdef EV_USE_URING
-			if (signalfd(ev->async->signal_fd, &_sig_set, 0) < 0) {
-				ev_setmask(SIG_SETMASK, &old_set, NULL);
+		// // Very bad solution, come up with a better one if u can
+		// #ifdef EV_USE_URING
+		// 	if (signalfd(ev->async->signal_fd, &_sig_set, 0) < 0) {
+		// 		ev_setmask(SIG_SETMASK, &old_set, NULL);
 
-				_sig_set = old_set;
-				ev_mutex_unlock(_sig_mut);
-				return evi_unix_conv_errno(errno);
-			}
-		#endif
+		// 		_sig_set = old_set;
+		// 		ev_mutex_unlock(_sig_mut);
+		// 		return evi_unix_conv_errno(errno);
+		// 	}
+		// #endif
 	}
 
 	_core_sig_counts[sig]++;
@@ -1063,16 +1059,16 @@ ev_code_t ev_sig_off(ev_signo_t sig) {
 			return evi_unix_conv_errno(errno);
 		}
 
-		// Very bad solution, come up with a better one if u can
-		#ifdef EV_USE_URING
-			if (signalfd(ev->async->signal_fd, &_sig_set, 0) < 0) {
-				ev_setmask(SIG_SETMASK, &old_set, NULL);
+		// // Very bad solution, come up with a better one if u can
+		// #ifdef EV_USE_URING
+		// 	if (signalfd(ev->async->signal_fd, &_sig_set, 0) < 0) {
+		// 		ev_setmask(SIG_SETMASK, &old_set, NULL);
 
-				_sig_set = old_set;
-				ev_mutex_unlock(_sig_mut);
-				return evi_unix_conv_errno(errno);
-			}
-		#endif
+		// 		_sig_set = old_set;
+		// 		ev_mutex_unlock(_sig_mut);
+		// 		return evi_unix_conv_errno(errno);
+		// 	}
+		// #endif
 	}
 
 	if (_core_sig_counts[sig]) {
