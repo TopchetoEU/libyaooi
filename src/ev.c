@@ -12,9 +12,10 @@
 
 // Source files included here for a unity build
 
+#include "./core/addr.c" // IWYU pragma: export
+#include "./core/filelist.c" // IWYU pragma: export
 #include "./core/queue.c" // IWYU pragma: export
 #include "./core/time.c" // IWYU pragma: export
-#include "./core/addr.c" // IWYU pragma: export
 #include "./impl/impl.c" // IWYU pragma: export
 
 const char *ev_strerr(ev_code_t code) {

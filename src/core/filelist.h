@@ -19,6 +19,7 @@ struct ev_fd {
 	ev_fd_t next;
 
 	ev_req_t head;
+	bool owned;
 
 	evi_fd_impl_t impl;
 };

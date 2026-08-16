@@ -58,6 +58,7 @@ static bool evi_unix_isfd(ev_fd_t fd) {
 	#endif
 }
 static void evi_unix_mkfd(ev_filelist_t fl, ev_fd_t res, int fd) {
+	res->owned = true;
 	res->impl.fd = fd;
 	#ifndef EV_USE_LINUX
 		res->impl.is_fd = true;
@@ -67,6 +68,7 @@ static void evi_unix_mkfd(ev_filelist_t fl, ev_fd_t res, int fd) {
 }
 #ifndef EV_USE_LINUX
 static void evi_unix_mkat(ev_filelist_t fl, ev_fd_t res, const char *at) {
+	res->owned = true;
 	res->impl.at = at;
 	res->impl.is_fd = false;
 
@@ -388,24 +390,27 @@ static int evi_unix_mkstd(bool in, int *pparent, int *pchild, ev_fd_t *pres) {
 	return 0;
 }
 
-ev_code_t ev_fd_new(ev_filelist_t fl, ev_fd_t *pres, uint64_t fd) {
+ev_code_t ev_fd_new(ev_filelist_t fl, ev_fd_t *pres, uint64_t fd, bool owned) {
 	ev_fd_t res = malloc(sizeof *res);
 	if (!res) return EV_ENOMEM;
 
 	evi_unix_mkfd(fl, res, fd);
+	res->owned = owned;
 	*pres = res;
 
 	return EV_OK;
 }
 void ev_fd_close(ev_fd_t fd) {
-	#ifndef EV_USE_LINUX
-	if (fd->impl.is_at) {
-		free(fd->impl.at);
-	}
-	#endif
+	if (fd->owned) {
+		#ifndef EV_USE_LINUX
+		if (fd->impl.is_at) {
+			free(fd->impl.at);
+		}
+		#endif
 
-	while (close(fd->impl.fd) < 0) {
-		if (errno != EINTR) return;
+		while (close(fd->impl.fd) < 0) {
+			if (errno != EINTR) return;
+		}
 	}
 
 	evi_dlist_del(fl, fd);
@@ -452,13 +457,13 @@ ev_code_t ev_stat(ev_fd_t fd, ev_stat_t *buff) {
 }
 
 ev_code_t ev_tty_in(ev_filelist_t fl, ev_fd_t *pres) {
-	return ev_fd_new(fl, pres, STDIN_FILENO);
+	return ev_fd_new(fl, pres, STDIN_FILENO, false);
 }
 ev_code_t ev_tty_out(ev_filelist_t fl, ev_fd_t *pres) {
-	return ev_fd_new(fl, pres, STDOUT_FILENO);
+	return ev_fd_new(fl, pres, STDOUT_FILENO, false);
 }
 ev_code_t ev_tty_err(ev_filelist_t fl, ev_fd_t *pres) {
-	return ev_fd_new(fl, pres, STDERR_FILENO);
+	return ev_fd_new(fl, pres, STDERR_FILENO, false);
 }
 ev_code_t ev_tty_raw(ev_fd_t tty, ev_tty_raw_t *pres) {
 	if (!evi_unix_isfd(tty)) return EV_EBADF;

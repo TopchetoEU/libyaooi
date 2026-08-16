@@ -80,7 +80,8 @@ typedef struct {
 typedef struct ev_fd *ev_fd_t;
 
 // Creates a handle from an OS-specific FD
-ev_code_t ev_fd_new(ev_filelist_t fl, ev_fd_t *pres, uint64_t fd);
+// If owned is false, the file won't actually be closed by ev_fd_close()
+ev_code_t ev_fd_new(ev_filelist_t fl, ev_fd_t *pres, uint64_t fd, bool owned);
 // Cancels all requests, associated to the handle and releases all resources, used by the `req`
 void ev_fd_close(ev_fd_t fd);
 
