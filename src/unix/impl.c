@@ -31,13 +31,13 @@
 	#include <sys/signalfd.h>
 #endif
 
-#include "../../utils/lists.h"
-#include "../../utils/multithread.h"
+#include "../utils/lists.h"
+#include "../utils/multithread.h"
 
 #include "./impl.h" // IWYU pragma: export
 
-#include "../../core/time.c"
-#include "../../core/filelist.c"
+#include "../time.c"
+#include "../filelist.c"
 #include "./async.c" // IWYU pragma: export
 
 #ifndef __USE_GNU

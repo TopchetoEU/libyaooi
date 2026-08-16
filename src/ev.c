@@ -12,11 +12,11 @@
 
 // Source files included here for a unity build
 
-#include "./core/addr.c" // IWYU pragma: export
-#include "./core/filelist.c" // IWYU pragma: export
-#include "./core/queue.c" // IWYU pragma: export
-#include "./core/time.c" // IWYU pragma: export
-#include "./impl/impl.c" // IWYU pragma: export
+#include "./addr.c" // IWYU pragma: export
+#include "./filelist.c" // IWYU pragma: export
+#include "./queue.c" // IWYU pragma: export
+#include "./time.c" // IWYU pragma: export
+#include "./impl.c" // IWYU pragma: export
 
 const char *ev_strerr(ev_code_t code) {
 	switch (code) {

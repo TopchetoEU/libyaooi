@@ -22,10 +22,10 @@
 #include <liburing/io_uring.h>
 #include <liburing.h>
 
-#include "../../utils/multithread.h"
+#include "../utils/multithread.h"
 #include "./uring.h"
 
-#include "../../core/queue.c"
+#include "../queue.c"
 #include "./impl.h"
 
 

@@ -7,7 +7,7 @@
 
 #include "./pool.h" // IWYU pragma: export
 
-#include "../utils/multithread.h"
+#include "./utils/multithread.h"
 
 #include "./queue.c"
 

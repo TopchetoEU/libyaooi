@@ -12,7 +12,7 @@
 
 #include "./pollish.h" // IWYU pragma: export
 
-#include "../../core/queue.c"
+#include "../queue.c"
 #include "./impl.c"
 
 static evi_pl_evn_mask_t _evi_pl_tomask(evi_pl_kind_t kind) {

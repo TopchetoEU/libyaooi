@@ -6,8 +6,8 @@
 #include <ev/errno.h>
 #include <ev/queue.h>
 
-#include "../utils/multithread.h"
-#include "../impl/impl.h"
+#include "./utils/multithread.h"
+#include "./impl.h"
 #include "./pool.h"
 
 struct ev_queue {

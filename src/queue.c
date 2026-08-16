@@ -9,10 +9,10 @@
 
 #include "./queue.h" // IWYU pragma: export
 
-#include "../utils/multithread.h"
-#include "../utils/lists.h"
+#include "./utils/multithread.h"
+#include "./utils/lists.h"
 
-#include "../impl/impl.c"
+#include "./impl.c"
 
 static bool evi_queue_trykill(ev_queue_t queue) {
 	if (!queue->dead) goto fail;

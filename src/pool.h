@@ -4,7 +4,7 @@
 
 #include <ev/queue.h>
 
-#include "../utils/multithread.h"
+#include "./utils/multithread.h"
 
 typedef struct ev_pool_worker {
 	struct ev_pool_worker *next;
