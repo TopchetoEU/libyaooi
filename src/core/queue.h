@@ -10,7 +10,7 @@
 #include "../impl/impl.h"
 #include "./pool.h"
 
-typedef struct ev_queue {
+struct ev_queue {
 	ev_mutex_t lock;
 
 	ev_req_t running;
@@ -19,11 +19,9 @@ typedef struct ev_queue {
 	bool dead;
 
 	evi_queue_impl_t impl;
-} *ev_queue_t;
+};
 
 static ev_req_t evi_queue_pop(ev_queue_t queue, ev_code_t *pcode);
-static ev_code_t evi_queue_init(ev_queue_t ev);
-static ev_code_t evi_queue_free(ev_queue_t ev);
 
 typedef enum {
 	EVI_REQ_BORN,

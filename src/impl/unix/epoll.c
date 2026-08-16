@@ -1,6 +1,5 @@
 #pragma once
 
-#include <stdlib.h>
 #include <assert.h>
 #include <err.h>
 #include <sys/epoll.h>
@@ -9,210 +8,120 @@
 
 #include <ev/conf.h>
 #include <ev/errno.h>
+#include <ev/queue.h>
+#include <ev/time.h>
 
 #include "./epoll.h" // IWYU pragma: export
 
+#include "./impl.h"
+#include "./pollish.c"
 #include "./pollish.c"
 
-static uint64_t evi_async_subms_diff(ev_time_t timeout) {
-	ev_time_t now;
-	if (ev_timenow(&now) != EV_OK) return 0;
+typedef struct {
+	int fd;
+	void *udata;
+} *_evi_epoll_udata_t;
 
-	ev_time_t diff = ev_timesub(now, timeout);
-	if (diff.sec != 0) return 0;
-	if (diff.nsec > 1000000) return 0;
-	return diff.nsec;
-}
+ev_code_t evi_pl_impl_setmask(ev_queue_t queue, void *udata, int fd, evi_pl_evn_mask_t mask) {
+	int realmask = EPOLLRDHUP | EPOLLERR | EPOLLHUP;
+	if (mask & EVI_PL_READABLE) realmask |= EPOLLIN;
+	if (mask & EVI_PL_WRITABLE) realmask |= EPOLLOUT;
 
-static evi_pl_evn_mask_t evi_epoll_mkmask(evi_pl_evn_mask_t type) {
-	int mask = EPOLLRDHUP | EPOLLERR | EPOLLHUP;
+	struct epoll_event evn = {
+		.data.ptr = udata,
+		.events = realmask,
+	};
 
-	switch (type) {
-		case EVI_PL_READABLE: mask |= EPOLLIN; break;
-		case EVI_PL_WRITABLE: mask |= EPOLLOUT; break;
+	if (mask == 0) {
+		if (epoll_ctl(queue->impl.epoll_fd, EPOLL_CTL_DEL, fd, &evn) == 0) return EV_OK;
+		if (errno == ENOENT) return EV_OK;
+		return evi_unix_conv_errno(errno);
 	}
-
-	return mask;
-}
-static int evi_epoll_type_to_unmask(ev_req_type_t type) {
-	switch (type) {
-		case EVI_READ:
-		case EVI_FILE_READ:
-		case EVI_SOCKET_ACCEPT:
-		case EVI_PROC_WAIT:
-			return ~EPOLLIN;
-		case EVI_WRITE:
-		case EVI_FILE_WRITE:
-			return ~EPOLLOUT;
-		default:
-			return -1;
-	}
-}
-static int evi_epoll_fd_to_mask(ev_fd_t fd) {
-	int flags = 0;
-
-	if (fd->impl.async.read) flags |= evi_epoll_mkmask(EVI_PL_READABLE);
-	if (fd->impl.async.write) flags |= evi_epoll_mkmask(EVI_PL_WRITABLE);
-
-	return flags;
-}
-
-ev_code_t evi_pl_impl_add(ev_t ev, evi_pl_evn_t evn) {
-	ev_epoll_fd_t fd = malloc(sizeof *fd);
-	if (!fd) goto error;
-	fd->fd = evn.fd;
-	fd->read = 0;
-	fd->write = 0;
-
-	ev_epoll_req_t req = malloc(sizeof *req);
-	if (!req) goto error_alloc_fd;
-
-	fd->head = req;
-
-	req->next = NULL;
-	req->evn = evn;
-
-	if (evn.type & 0x10) fd->write++;
-	else fd->read++;
-
-	if (epoll_ctl(ev->async->epoll_fd, EPOLL_CTL_ADD, evn.fd, &(struct epoll_event) {
-		.data.ptr = fd,
-		.events = evi_epoll_fd_to_mask(fd),
-	}) == 0) {
-		if (ev->async->head) ev->async->head->slot = &fd->next;
-		fd->next = fd;
-		fd->slot = &ev->async->head;
-		ev->async->head = fd;
-		return EV_OK;
-	}
-	if (errno != EEXIST) goto error_alloc_req;
-
-	for (ev_epoll_fd_t new_fd = ev->async->head; new_fd; new_fd = new_fd->next) {
-		if (new_fd->fd == evn.fd) {
-			req->next = new_fd->head;
-			new_fd->head = req->next;
-			new_fd->read += fd->read;
-			new_fd->write += fd->write;
-
-			if (epoll_ctl(ev->async->epoll_fd, EPOLL_CTL_MOD, evn.fd, &(struct epoll_event) {
-				.data.ptr = new_fd,
-				.events = evi_epoll_fd_to_mask(new_fd),
-			}) < 0) {
-				new_fd->head = req->next;
-				goto error_alloc_req;
-			}
-
-			free(fd);
-			return EV_OK;
+	else {
+		if (epoll_ctl(queue->impl.epoll_fd, EPOLL_CTL_MOD, fd, &evn) == 0) return EV_OK;
+		if (errno == ENOENT) {
+			if (epoll_ctl(queue->impl.epoll_fd, EPOLL_CTL_ADD, fd, &evn) == 0) return EV_OK;
 		}
+
+		return evi_unix_conv_errno(errno);
 	}
-
-	assert(false && "epoll_ctl reports EEXIST, but the fd is not in our set");
-
-error_alloc_req:
-	free(req);
-error_alloc_fd:
-	free(fd);
-error:
-	return evi_unix_conv_errno(errno);
 }
 
-static ev_code_t evi_pl_impl_poll(ev_t ev, const ev_time_t *ptimeout, ev_req_t *pres) {
+static ev_code_t evi_pl_impl_poll(ev_queue_t queue, const ev_time_t *deadline, void **pudata, evi_pl_evn_mask_t *pready) {
 	struct epoll_event evn = { 0 };
 
-	if (ptimeout) {
-		ev_time_t tmp;
-		ev_timenow(&tmp);
-		if (ev_timecmp(tmp, *ptimeout) > 0) return EV_ETIMEDOUT;
+	if (deadline) {
+		ev_time_t now = ev_time(EV_CLOCK_MONOTIME);
+		if (ev_timecmp(now, *deadline) > 0) return EV_ETIMEDOUT;
 
-		timerfd_settime(ev->async->timer_fd, TFD_TIMER_ABSTIME, &(struct itimerspec) {
-			.it_value = { ptimeout->sec, ptimeout->nsec },
+		timerfd_settime(queue->impl.timer_fd, TFD_TIMER_ABSTIME, &(struct itimerspec) {
+			.it_value = { deadline->sec, deadline->nsec },
 			.it_interval = { 0, 0 }
 		}, NULL);
 	}
 	else {
-		timerfd_settime(ev->async->timer_fd, 0, &(struct itimerspec) {
+		timerfd_settime(queue->impl.timer_fd, 0, &(struct itimerspec) {
 			.it_value = { 0, 0 },
 			.it_interval = { 0, 0 }
 		}, NULL);
 	}
 
 	int n;
-	while ((n = epoll_wait(ev->async->epoll_fd, &evn, 1, -1)) < 0) {
+	while ((n = epoll_wait(queue->impl.epoll_fd, &evn, 1, -1)) < 0) {
 		if (errno != EINTR) err(1, "failed to poll");
 	}
 	if (n == 0) {
-		if (ptimeout) return EV_POLL_TIMEOUT;
-		else return EV_POLL_EMPTY;
+		// if (deadline) return EV_ETIMEDOUT;
+		return EV_ETIMEDOUT;
 	}
 
-	if (evn.data.fd == ev->async->timer_fd) {
-		assert(ptimeout != NULL && "timer returned without a timeout");
-		return EV_POLL_TIMEOUT;
+	if (evn.data.fd == queue->impl.timer_fd) {
+		assert(deadline != NULL && "timer returned without a timeout");
+		return EV_ETIMEDOUT;
 	}
 
-	ev_epoll_fd_t fd = evn.data.ptr;
+	evi_pl_evn_mask_t mask = 0;
 
-	for (ev_epoll_req_t *preq = &fd->head; *preq; preq = &(*preq)->next) {
-		ev_epoll_req_t req = *preq;
+	if (evn.events & (EPOLLRDHUP | EPOLLERR | EPOLLHUP | EPOLLIN)) mask |= EVI_PL_READABLE;
+	if (evn.events & (EPOLLRDHUP | EPOLLERR | EPOLLHUP | EPOLLOUT)) mask |= EVI_PL_WRITABLE;
 
-		if (evn.events & evi_epoll_type_to_mask(req->evn.type)) {
-			if (evi_pl_cb(ev, &req->evn, pticket, perr)) {
-				if (req->evn.type & 0x10) {
-					fd->write--;
-				}
-				else {
-					fd->read--;
-				}
-
-				*preq = req->next;
-				free(req);
-
-				if (!fd->head) {
-					if (fd->next) fd->next->slot = fd->slot;
-					*fd->slot = fd->next;
-
-					epoll_ctl(ev->async->epoll_fd, EPOLL_CTL_DEL, fd->fd, NULL);
-				}
-				else {
-					epoll_ctl(ev->async->epoll_fd, EPOLL_CTL_MOD, fd->fd, &(struct epoll_event) {
-						.data.ptr = fd,
-						.events = evi_epoll_fd_to_mask(fd),
-					});
-				}
-
-				return EV_POLL_OK;
-			}
-		}
-	}
-
-	if (ptimeout) return EV_POLL_TIMEOUT;
-	return EV_POLL_EMPTY;
+	*pudata = evn.data.ptr;
+	*pready = mask;
+	return EV_OK;
 }
 
-static ev_code_t evi_pl_impl_init(ev_t ev) {
-	ev->async->epoll_fd = epoll_create(16);
-	if (ev->async->epoll_fd < 0) goto err;
+static ev_code_t evi_queue_impl_init(ev_queue_t queue) {
+	ev_code_t code;
 
-	ev->async->timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
-	if (ev->async->timer_fd < 0) goto err_epoll;
+	queue->impl.timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
+	if (queue->impl.timer_fd < 0) { code = evi_unix_conv_errno(errno); goto err_timer; }
 
-	if (epoll_ctl(ev->async->epoll_fd, EPOLL_CTL_ADD, ev->async->timer_fd, &(struct epoll_event) {
-		.events = evi_epoll_type_to_mask(EVI_POLL_READ),
-		.data.fd = ev->async->timer_fd,
-	}) < 0) goto err_timer;
+	queue->impl.epoll_fd = epoll_create(16);
+	if (queue->impl.epoll_fd < 0) { code = evi_unix_conv_errno(errno); goto err_epoll; }
 
-	ev->async->head = NULL;
+	if (epoll_ctl(queue->impl.epoll_fd, EPOLL_CTL_ADD, queue->impl.timer_fd, &(struct epoll_event) {
+		.events = EPOLLRDHUP | EPOLLERR | EPOLLHUP | EPOLLIN,
+		.data.fd = queue->impl.timer_fd,
+	}) < 0) goto err_epoll_ctl;
+
+	if ((code = evi_pl_init(&queue->impl.pl, queue)) != EV_OK) goto err_pl;
 
 	return EV_OK;
-err_timer:
-	close(ev->async->timer_fd);
+
+err_pl:
+err_epoll_ctl:
+	close(queue->impl.epoll_fd);
 err_epoll:
-	close(ev->async->epoll_fd);
-err:
+	close(queue->impl.timer_fd);
+err_timer:
 	return evi_unix_conv_errno(errno);
 }
-static ev_code_t evi_pl_impl_free(ev_t ev) {
-	close(ev->async->epoll_fd);
+static ev_code_t evi_queue_impl_free(ev_queue_t queue) {
+	ev_code_t code;
+
+	if ((code = evi_pl_init(&queue->impl.pl, queue)) != EV_OK) return code;
+
+	close(queue->impl.epoll_fd);
+	close(queue->impl.timer_fd);
 	return EV_OK;
 }

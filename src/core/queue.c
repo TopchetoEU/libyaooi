@@ -5,11 +5,14 @@
 #include <ev/conf.h>
 #include <ev/errno.h>
 #include <ev/queue.h>
+#include <stdlib.h>
 
 #include "./queue.h" // IWYU pragma: export
 
 #include "../utils/multithread.h"
 #include "../utils/lists.h"
+
+#include "../impl/impl.c"
 
 static bool evi_queue_trykill(ev_queue_t queue) {
 	if (!queue->dead) goto fail;
@@ -66,6 +69,8 @@ static bool evi_req_end(ev_req_t req, ev_code_t code) {
 		evi_list_add(req_ready, req->queue->ready, req);
 	}
 
+	evi_queue_impl_notify(req->queue);
+
 	ev_mutex_unlock(req->queue->lock);
 	return true;
 }
@@ -105,9 +110,12 @@ static ev_req_t evi_queue_pop(ev_queue_t queue, ev_code_t *pcode) {
 	return req;
 }
 
-static ev_code_t evi_queue_init(ev_queue_t queue) {
+ev_queue_t ev_queue_new() {
+	ev_queue_t queue = malloc(sizeof *queue);
+	if (!queue) return NULL;
+
 	ev_code_t err = evi_queue_impl_init(queue);
-	if (err != EV_OK) return err;
+	if (err != EV_OK) return NULL;
 
 	queue->ready = NULL;
 	queue->running = NULL;
@@ -115,28 +123,27 @@ static ev_code_t evi_queue_init(ev_queue_t queue) {
 
 	ev_mutex_new(queue->lock);
 
-	return EV_OK;
+	return queue;
 }
-static ev_code_t evi_queue_free(ev_queue_t queue) {
+void ev_queue_free(ev_queue_t queue) {
 	ev_mutex_lock(queue->lock);
 
 	if (queue->dead) {
 		ev_mutex_unlock(queue->lock);
-		return EV_EINVAL;
-	}
-
-	ev_code_t err = evi_queue_impl_free(queue);
-	if (err != EV_OK) {
-		ev_mutex_unlock(queue->lock);
-		return err;
+		return;
 	}
 
 	for (ev_req_t i = queue->running; i; i = i->running.next) {
 		ev_req_cancel(i);
 	}
 
+	ev_code_t err = evi_queue_impl_free(queue);
+	if (err != EV_OK) {
+		ev_mutex_unlock(queue->lock);
+		return;
+	}
+
 	evi_queue_trykill(queue);
-	return EV_OK;
 }
 
 void ev_req_cancel(ev_req_t req) {
