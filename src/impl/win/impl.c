@@ -24,8 +24,9 @@
 #include <processthreadsapi.h>
 #include <synchapi.h>
 
+#include "./impl.h" // IWYU pragma: export
+
 #include "./utils.h"
-#include "../../ev.h"
 
 // FIXME: never before run code, shat it out in an evening.
 // Consider windows as unsupported, until I can be bothered to cross-compile luajit
