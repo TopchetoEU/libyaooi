@@ -108,13 +108,13 @@ ev_code_t ev_tty_raw(ev_fd_t tty, ev_tty_raw_t *pres);
 ev_code_t ev_tty_rawend(ev_tty_raw_t rawmode);
 
 // Deletes the given file or directory. Fails if directory is not empty
-ev_code_t ev_file_remove(const char *EV_NONULL path);
+ev_code_t ev_file_remove(const char *path);
 // Creates a symbolic link to path at target
-ev_code_t ev_file_symlink(const char *EV_NONULL src, const char *EV_NONULL dst);
+ev_code_t ev_file_symlink(const char *src, const char *dst);
 // Creates a hard link to the file
-ev_code_t ev_file_hardlink(const char *EV_NONULL src, const char *EV_NONULL dst);
+ev_code_t ev_file_hardlink(const char *src, const char *dst);
 // Reads the given symlink into a malloc'd string
-ev_code_t ev_file_readlink(const char *EV_NONULL path, char **pres);
+ev_code_t ev_file_readlink(const char *path, char **pres);
 
 // Although on linux, files are blocking, the file functions are async, because they may block for a long time
 // (for example, if the file lives on an NFS or FUSE filesystem)
@@ -132,11 +132,11 @@ ev_code_t ev_file_chown(ev_fd_t fd, int uid, int gid);
 
 typedef struct ev_dir *ev_dir_t;
 // Equivalent to posix's mkdir
-ev_code_t ev_dir_new(const char *EV_NONULL path, int mode);
+ev_code_t ev_dir_new(const char *path, int mode);
 // Equivalent to posix's opendir
-ev_code_t ev_dir_open(ev_filelist_t fl, ev_dir_t *pres, const char *EV_NONULL path);
+ev_code_t ev_dir_open(ev_filelist_t fl, ev_dir_t *pres, const char *path);
 // Equivalent to posix's readdir
-ev_code_t ev_dir_next(ev_dir_t dir, char **EV_NONULL pname);
+ev_code_t ev_dir_next(ev_dir_t dir, char **pname);
 // Equivalent to posix's closedir
 void ev_dir_close(ev_dir_t dir);
 
@@ -145,7 +145,7 @@ ev_code_t ev_socket_connect(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, e
 // Equivalent to bind()
 ev_code_t ev_socket_bind(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port, size_t max_n);
 // Equivalent to accept()
-ev_code_t ev_socket_accept(ev_filelist_t fl, ev_fd_t server, ev_fd_t *pres, ev_addr_t *EV_NONULL paddr, uint16_t *EV_NONULL pport);
+ev_code_t ev_socket_accept(ev_filelist_t fl, ev_fd_t server, ev_fd_t *pres, ev_addr_t *paddr, uint16_t *pport);
 
 typedef struct {
 	size_t n;
@@ -165,21 +165,21 @@ typedef enum {
 } ev_addrinfo_flags_t;
 
 // Equivalent to posix's getaddrinfo (with a few simplifications)
-ev_code_t ev_dns_getaddrinfo(ev_addrinfo_t *EV_NONULL pres, const char *EV_NONULL name, ev_addrinfo_flags_t flags);
+ev_code_t ev_dns_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_flags_t flags);
 
 typedef struct ev_proc *ev_proc_t;
 
 // Equivalent to posix's fork then exec
 ev_code_t ev_proc_spawn(
 	ev_filelist_t fl, ev_proc_t *pres,
-	const char **EV_NONULL argv, const char **env, const char *cwd,
+	const char **argv, const char **env, const char *cwd,
 	ev_fd_t *pin, ev_fd_t *pout, ev_fd_t *perr
 );
 // Equivalent to posix's waitpid
 // Will free all resources, associated with proc
 // psig is set to the signal that terminated the child, or -1 if not terminated by a signal
 // pcode is set to the exit code of the app, or -1 if child did not exit with a code
-ev_code_t ev_proc_wait(ev_proc_t proc, int *EV_NONULL psig, int *EV_NONULL pcode);
+ev_code_t ev_proc_wait(ev_proc_t proc, int *psig, int *pcode);
 // Immeditely releases all resources, associated with tracking the process, effectively daemonizing it.
 // On unix-like systems, this will initialize a process-wide reaper (if not initialized yet) and put the child in the reaper's list
 // Upon our process's exit, as per unix rules, the child will daemonize
@@ -200,21 +200,21 @@ ev_code_t ev_sig_on(ev_signo_t sig);
 ev_code_t ev_sig_off(ev_signo_t sig);
 // Blocks until the given signal is received.
 // NOTE: activating a signal and then not calling sig_wait is equivalent to ignoring it
-ev_code_t ev_sig_wait(ev_signo_t *EV_NONULL pres);
+ev_code_t ev_sig_wait(ev_signo_t *pres);
 
 // Gets a malloc'd string, representing the requested path
-ev_code_t ev_getpath(ev_path_type_t type, char **EV_NONULL pres);
+ev_code_t ev_getpath(ev_path_type_t type, char **pres);
 
 // Gets an env variable from the current process
-ev_code_t ev_env_get(const char *EV_NONULL name, char **EV_NONULL pres);
+ev_code_t ev_env_get(const char *name, char **pres);
 // Sets an env variable in the current process (if val is NULL, unsets it)
-ev_code_t ev_env_set(const char *EV_NONULL name, const char *val);
+ev_code_t ev_env_set(const char *name, const char *val);
 
 typedef struct ev_enviter *ev_enviter_t;
 // Initializes an iterator of the env variables
 ev_code_t ev_enviter_new(ev_enviter_t *pres);
 // Gets the next env variable from the iterator
-ev_code_t ev_enviter_next(ev_enviter_t iter, const char **EV_NONULL pres);
+ev_code_t ev_enviter_next(ev_enviter_t iter, const char **pres);
 void ev_enviter_close(ev_enviter_t iter);
 
 #endif
