@@ -2,8 +2,6 @@
 
 // NOT SUPPORTED!!! DRAGONS BE HERE!!!!!
 
-#include "../../def/conf.h"
-
 #include <ev.h>
 #include <ev/conf.h>
 #include <ev/io.h>

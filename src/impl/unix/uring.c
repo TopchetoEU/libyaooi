@@ -2,10 +2,7 @@
 
 // NOT SUPPORTED!!! DRAGONS BE HERE!!!!!
 
-#include "../../def/conf.h"
-
 #include <ev/conf.h>
-#include <ev.h>
 #include <ev/errno.h>
 #include <ev/signo.h>
 
@@ -25,12 +22,11 @@
 #include <liburing/io_uring.h>
 #include <liburing.h>
 
-#include "../../def/core.h"
 #include "../../utils/multithread.h"
 #include "./uring.h"
 
-#include "../../utils/queue.c"
-#include "./utils.h"
+#include "../../core/queue.c"
+#include "./impl.h"
 
 
 static void evi_unix_conv_statx(ev_stat_t *dst, struct statx *src) {
