@@ -8,5 +8,3 @@
 #else
 	#include "./ansi/impl.c" // IWYU pragma: export
 #endif
-
-#include "./async-fallback.c" // IWYU pragma: export

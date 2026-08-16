@@ -17,6 +17,7 @@
 #include "./queue.c" // IWYU pragma: export
 #include "./time.c" // IWYU pragma: export
 #include "./impl.c" // IWYU pragma: export
+#include "./fallback/async.c" // IWYU pragma: export
 
 const char *ev_strerr(ev_code_t code) {
 	switch (code) {

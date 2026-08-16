@@ -86,7 +86,9 @@ static bool evi_req_kill(ev_req_t req) {
 	req->state = EVI_REQ_DEAD;
 
 	if (req->queue->dead) {
-		if (!evi_queue_trykill(req->queue)) ev_mutex_unlock(req->queue->lock);
+		if (!evi_queue_trykill(req->queue)) {
+			ev_mutex_unlock(req->queue->lock);
+		}
 	}
 
 	return true;
@@ -104,7 +106,9 @@ static ev_req_t evi_queue_pop(ev_queue_t queue, ev_code_t *pcode) {
 	req->state = EVI_REQ_DEAD;
 	evi_list_del(req_ready, queue->ready);
 
-	if (!evi_queue_trykill(queue)) ev_mutex_unlock(queue->lock);
+	if (!evi_queue_trykill(queue)) {
+		ev_mutex_unlock(queue->lock);
+	}
 
 	*pcode = req->ready.code;
 	return req;
