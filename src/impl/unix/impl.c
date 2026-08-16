@@ -698,7 +698,7 @@ err_socket:
 	free(server);
 	return evi_unix_conv_errno(errno);
 }
-ev_code_t ev_socket_accept(ev_filelist_t fl, ev_fd_t server, ev_fd_t *pres, ev_addr_t *EV_NONULL paddr, uint16_t *EV_NONULL pport) {
+ev_code_t ev_socket_accept(ev_filelist_t fl, ev_fd_t server, ev_fd_t *pres, ev_addr_t *paddr, uint16_t *pport) {
 	if (!evi_unix_isfd(server)) return EV_EBADF;
 
 	ev_fd_t client = malloc(sizeof *client);
@@ -787,7 +787,7 @@ ev_code_t ev_dns_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_
 // Equivalent to posix's fork then exec
 ev_code_t ev_proc_spawn(
 	ev_filelist_t fl, ev_proc_t *pres,
-	const char **EV_NONULL argv, const char **env, const char *cwd,
+	const char **argv, const char **env, const char *cwd,
 	ev_fd_t *pin, ev_fd_t *pout, ev_fd_t *perr
 ) {
 	int in_parent = -1, in_child = -1;
@@ -1216,7 +1216,7 @@ void ev_enviter_close(ev_enviter_t iter) {
 	free(iter);
 }
 
-ev_time_t ev_timenow(ev_clock_t clock) {
+ev_time_t ev_time(ev_clock_t clock) {
 	struct timespec res;
 	int err;
 	switch (clock) {

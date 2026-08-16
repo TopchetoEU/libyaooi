@@ -25,7 +25,7 @@ typedef struct {
 		#endif
 	};
 
-	evi_async_fd_t async;
+	evi_fd_ioq_t ioq;
 } evi_fd_impl_t;
 struct evi_dir_impl {
 	DIR *dir;

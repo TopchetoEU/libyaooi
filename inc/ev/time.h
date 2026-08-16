@@ -26,7 +26,7 @@ typedef enum {
 } ev_clock_t;
 
 // Gets the current monotonic time
-ev_time_t ev_timenow(ev_clock_t clock);
+ev_time_t ev_time(ev_clock_t clock);
 // Blocks until the monotonic time is greater than `until`
 void ev_timesleep(ev_time_t until);
 
