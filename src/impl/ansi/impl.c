@@ -9,6 +9,8 @@
 #include <ev/conf.h>
 #include <ev/errno.h>
 
+#include "./impl.h" // IWYU pragma: export
+
 #include "../../core/time.c"
 #include "./utils.c"
 
