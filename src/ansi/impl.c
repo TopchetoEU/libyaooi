@@ -34,7 +34,7 @@
 static void _evi_ansi_cancel(ev_req_t req) {
 	(void)req;
 }
-static char *_evi_generic_getenvpath(const char *envname, const char *fallback, const char *suffix) {
+static char *_evi_ansi_getenvpath(const char *envname, const char *fallback, const char *suffix) {
 	const char *home = getenv(envname);
 	if (!home) home = fallback;
 
@@ -53,14 +53,14 @@ static char *_evi_generic_getenvpath(const char *envname, const char *fallback, 
 	}
 }
 
-static void evi_generic_mkfd(ev_filelist_t fl, ev_fd_t res, FILE *f) {
+static void evi_ansi_mkfd(ev_filelist_t fl, ev_fd_t res, FILE *f) {
 	res->owned = true;
 	res->impl.kind = EVI_ANSI_FILE;
 	res->impl.file = f;
 
 	evi_dlist_add(fl, fl->fd_head, res);
 }
-static bool evi_generic_mkat(ev_filelist_t fl, ev_fd_t res, const char *path) {
+static bool evi_ansi_mkat(ev_filelist_t fl, ev_fd_t res, const char *path) {
 	size_t len = strlen(path);
 
 	char *at = malloc(len + 1);
@@ -75,11 +75,11 @@ static bool evi_generic_mkat(ev_filelist_t fl, ev_fd_t res, const char *path) {
 	evi_dlist_add(fl, fl->fd_head, res);
 	return true;
 }
-static int evi_generic_isfd(ev_fd_t fd) {
+static int evi_ansi_isfd(ev_fd_t fd) {
 	return fd->impl.kind == EVI_ANSI_FILE;
 }
 
-static ev_code_t evi_generic_conv_errno(int err, ev_code_t fallback) {
+static ev_code_t evi_ansi_conv_errno(int err, ev_code_t fallback) {
 	switch (err) {
 		#ifdef EPERM
 			case EPERM: return EV_EPERM;
@@ -191,7 +191,7 @@ ev_code_t ev_fd_new(ev_filelist_t fl, ev_fd_t *pres, uint64_t fd, bool owned) {
 	ev_fd_t res = malloc(sizeof *res);
 	if (!res) return EV_ENOMEM;
 
-	evi_generic_mkfd(fl, res, (FILE*)(size_t)fd);
+	evi_ansi_mkfd(fl, res, (FILE*)(size_t)fd);
 	res->owned = owned;
 	*pres = res;
 
@@ -199,7 +199,7 @@ ev_code_t ev_fd_new(ev_filelist_t fl, ev_fd_t *pres, uint64_t fd, bool owned) {
 }
 void ev_fd_close(ev_fd_t fd) {
 	if (fd->owned) {
-		if (!evi_generic_isfd(fd)) {
+		if (!evi_ansi_isfd(fd)) {
 			free(fd->impl.at);
 		}
 		else {
@@ -219,7 +219,7 @@ void ev_fd_close(ev_fd_t fd) {
 }
 
 ev_code_t ev_read(ev_fd_t fd, char *buff, size_t *pn) {
-	if (!evi_generic_isfd(fd)) return EV_EBADF;
+	if (!evi_ansi_isfd(fd)) return EV_EBADF;
 
 	clearerr(fd->impl.file);
 	size_t n = fread(buff, *pn, 1, fd->impl.file);
@@ -229,7 +229,7 @@ ev_code_t ev_read(ev_fd_t fd, char *buff, size_t *pn) {
 	return EV_OK;
 }
 ev_code_t ev_write(ev_fd_t fd, char *buff, size_t *pn) {
-	if (!evi_generic_isfd(fd)) return EV_EBADF;
+	if (!evi_ansi_isfd(fd)) return EV_EBADF;
 
 	clearerr((FILE*)fd);
 	size_t n = fwrite(buff, *pn, 1, (FILE*)fd);
@@ -239,7 +239,7 @@ ev_code_t ev_write(ev_fd_t fd, char *buff, size_t *pn) {
 	return EV_OK;
 }
 ev_code_t ev_sync(ev_fd_t fd) {
-	if (!evi_generic_isfd(fd)) return EV_EBADF;
+	if (!evi_ansi_isfd(fd)) return EV_EBADF;
 	if (fflush(fd->impl.file) < 0) return EV_EIO;
 	return EV_OK;
 }
@@ -247,7 +247,7 @@ ev_code_t ev_stat(ev_fd_t fd, ev_stat_t *buff) {
 	FILE *f;
 	bool owned = false;
 
-	if (evi_generic_isfd(fd)) f = fd->impl.file;
+	if (evi_ansi_isfd(fd)) f = fd->impl.file;
 	else {
 		f = fopen(fd->impl.at, "r");
 		owned = true;
@@ -296,7 +296,7 @@ ev_code_t ev_tty_rawend(ev_tty_raw_t rawmode) {
 }
 
 ev_code_t ev_file_remove(const char *path) {
-	if (remove(path) < 0) return evi_generic_conv_errno(errno, EV_ENOENT);
+	if (remove(path) < 0) return evi_ansi_conv_errno(errno, EV_ENOENT);
 	return EV_OK;
 }
 ev_code_t ev_file_symlink(const char *path, const char *target) {
@@ -324,7 +324,7 @@ ev_code_t ev_file_open(ev_filelist_t fl, ev_fd_t *pres, const char *path, ev_ope
 
 	switch ((int)flags) {
 		case EV_OPEN_STAT: {
-			if (!evi_generic_mkat(fl, res, path)) return EV_ENOMEM;
+			if (!evi_ansi_mkat(fl, res, path)) return EV_ENOMEM;
 			*pres = res;
 			return EV_OK;
 		}
@@ -356,13 +356,13 @@ ev_code_t ev_file_open(ev_filelist_t fl, ev_fd_t *pres, const char *path, ev_ope
 	FILE *f = fopen(path, open_mode);
 	if (!f) return EV_ENOENT;
 
-	evi_generic_mkfd(fl, res, f);
+	evi_ansi_mkfd(fl, res, f);
 
 	*pres = res;
 	return EV_OK;
 }
 ev_code_t ev_file_read(ev_fd_t fd, char *buff, size_t *pn, size_t offset) {
-	if (!evi_generic_isfd(fd)) return EV_EBADF;
+	if (!evi_ansi_isfd(fd)) return EV_EBADF;
 
 	size_t curr = ftell(fd->impl.file);
 	if (fseek(fd->impl.file, offset, SEEK_SET) < 0) return EV_ESPIPE;
@@ -376,7 +376,7 @@ ev_code_t ev_file_read(ev_fd_t fd, char *buff, size_t *pn, size_t offset) {
 	return EV_OK;
 }
 ev_code_t ev_file_write(ev_fd_t fd, char *buff, size_t *pn, size_t offset) {
-	if (!evi_generic_isfd(fd)) return EV_EBADF;
+	if (!evi_ansi_isfd(fd)) return EV_EBADF;
 
 	size_t curr = ftell(fd->impl.file);
 	if (fseek(fd->impl.file, offset, SEEK_SET) < 0) return EV_ESPIPE;
@@ -491,32 +491,32 @@ ev_code_t ev_sig_wait(ev_signo_t *pres) {
 ev_code_t ev_getpath(ev_path_type_t type, char **pres) {
 	switch (type) {
 		case EV_PATH_HOME: {
-			*pres = _evi_generic_getenvpath("HOME", ".", NULL);
+			*pres = _evi_ansi_getenvpath("HOME", ".", NULL);
 			if (!*pres) return EV_ENOMEM;
 			return EV_OK;
 		}
 		case EV_PATH_CACHE: {
-			*pres = _evi_generic_getenvpath("XDG_CACHE_HOME", ".", "/.cache");
+			*pres = _evi_ansi_getenvpath("XDG_CACHE_HOME", ".", "/.cache");
 			if (!*pres) return EV_ENOMEM;
 			return EV_OK;
 		}
 		case EV_PATH_CONFIG: {
-			*pres = _evi_generic_getenvpath("XDG_CONFIG_HOME", ".", "/.config");
+			*pres = _evi_ansi_getenvpath("XDG_CONFIG_HOME", ".", "/.config");
 			if (!*pres) return EV_ENOMEM;
 			return EV_OK;
 		}
 		case EV_PATH_DATA: {
-			*pres = _evi_generic_getenvpath("XDG_DATA_HOME", ".", "/.local/share");
+			*pres = _evi_ansi_getenvpath("XDG_DATA_HOME", ".", "/.local/share");
 			if (!*pres) return EV_ENOMEM;
 			return EV_OK;
 		}
 		case EV_PATH_RUNTIME: {
-			*pres = _evi_generic_getenvpath("XDG_DATA_HOME", "/tmp", NULL);
+			*pres = _evi_ansi_getenvpath("XDG_DATA_HOME", "/tmp", NULL);
 			if (!*pres) return EV_ENOMEM;
 			return EV_OK;
 		}
 		case EV_PATH_CWD: {
-			*pres = _evi_generic_getenvpath("PWD", ".", NULL);
+			*pres = _evi_ansi_getenvpath("PWD", ".", NULL);
 			if (!*pres) return EV_ENOMEM;
 			return EV_OK;
 		}

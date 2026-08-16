@@ -6,12 +6,12 @@
 
 #include "../fallback/queue.h" // IWYU pragma: export
 
-static void evi_generic_mkfd(ev_filelist_t fl, ev_fd_t res, FILE *f);
-static bool evi_generic_mkat(ev_filelist_t fl, ev_fd_t res, const char *path);
+static void evi_ansi_mkfd(ev_filelist_t fl, ev_fd_t res, FILE *f);
+static bool evi_ansi_mkat(ev_filelist_t fl, ev_fd_t res, const char *path);
 
-static int evi_generic_isfd(ev_fd_t fd);
+static int evi_ansi_isfd(ev_fd_t fd);
 
-static ev_code_t evi_generic_conv_errno(int err, ev_code_t fallback);
+static ev_code_t evi_ansi_conv_errno(int err, ev_code_t fallback);
 
 typedef struct {
 	enum {
