@@ -1231,15 +1231,15 @@ ev_time_t ev_time(ev_clock_t clock) {
 		case EV_CLOCK_MONOTIME: err = clock_gettime(CLOCK_MONOTONIC, &res); break;
 		case EV_CLOCK_CPUTIME: {
 			#ifdef EV_USE_LINUX
-				err = clock_gettime(CLOCK_MONOTONIC, &res);
+				err = clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &res); break;
 			#else
 				struct tms buff;
 				times(&buff);
 				res.tv_sec = (buff.tms_stime + buff.tms_utime) / CLOCKS_PER_SEC;
 				res.tv_nsec = ((buff.tms_stime + buff.tms_utime) % CLOCKS_PER_SEC) * (1000000000 / CLOCKS_PER_SEC);
+				err = 0;
+				break;
 			#endif
-			err = 0;
-			break;
 		}
 	}
 
