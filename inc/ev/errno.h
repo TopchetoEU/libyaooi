@@ -106,6 +106,6 @@ typedef enum {
 } ev_code_t;
 
 // Converts the error code to a human-readable string
-const char *EV_NONULL ev_strerr(ev_code_t code);
+const char *ev_strerr(ev_code_t code);
 
 #endif

@@ -39,7 +39,7 @@
 	}
 	#define ev_cond_broadcast(cond) (void)WakeAllConditionVariable(cond)
 	#define ev_cond_signal(cond) (void)WakeConditionVariable(cond)
-#elif defined EV_USE_MULTITHREAD && defined EV_USE_POSIX
+#elif defined EV_USE_MULTITHREAD && defined EV_USE_UNIX
 	#include <pthread.h>
 
 	typedef pthread_t ev_thread_t[1];

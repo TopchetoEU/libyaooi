@@ -7,7 +7,7 @@
 #include <ev/errno.h>
 
 // Used to deploy a sync workload in an ev-managed thread
-typedef int (*EV_NONULL ev_worker_t)(void *pargs);
+typedef int (*ev_worker_t)(void *pargs);
 
 // A structure, keeping track of all pending operations and results
 typedef struct ev_queue *ev_queue_t;

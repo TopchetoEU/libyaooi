@@ -7,7 +7,7 @@
 // IWYU pragma: begin_exports
 #ifdef /* multiplex */ EV_USE_EPOLL
 	#include "./epoll.c"
-#elif defined EV_USE_POSIX
+#elif defined EV_USE_UNIX
 	#include "./poll.c"
 #endif
 // IWYU pragma: end_exports
