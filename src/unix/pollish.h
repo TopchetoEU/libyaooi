@@ -28,9 +28,10 @@ typedef struct {
 } evi_pl_s, *evi_pl_t;
 
 typedef struct {
-	ev_req_t next;
+	ev_req_t next, *slot;
 	ev_fd_t fd;
 	#define evi_list_req_ioq_next(node) (node)->running.ioq.next
+	#define evi_list_req_ioq_slot(node) (node)->running.ioq.slot
 
 	evi_pl_kind_t kind;
 	union {
@@ -66,6 +67,8 @@ static ev_code_t evi_queue_impl_notify(ev_queue_t queue);
 static ev_code_t evi_pl_init(evi_pl_t pl, ev_queue_t queue);
 static ev_code_t evi_pl_free(evi_pl_t pl);
 
+static void (evi_unix_onclose)(ev_fd_t fd);
+
 // These are defined, so that the fallbacks can be ignored later on
 #define evq_read(...) evq_read(__VA_ARGS__)
 #define evq_write(...) evq_write(__VA_ARGS__)
@@ -73,3 +76,4 @@ static ev_code_t evi_pl_free(evi_pl_t pl);
 #define evq_file_write(...) evq_file_write(__VA_ARGS__)
 #define evq_socket_accept(...) evq_socket_accept(__VA_ARGS__)
 #define ev_queue_poll(...) ev_queue_poll(__VA_ARGS__)
+#define evi_unix_onclose(...) evi_unix_onclose(__VA_ARGS__)

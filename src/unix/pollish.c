@@ -70,6 +70,8 @@ static ev_code_t _evi_pl_req_start(ev_req_t req) {
 	ev_code_t code = evi_pl_impl_setmask(req->queue, fd, fd->fd, mask);
 	evi_req_begin(req, _evi_pl_req_cancel);
 
+	evi_dlist_add(req_ioq, fd->head, req);
+
 	// The handle doesn't support epoll, it must go thru the sync route
 	if (code == EV_EPERM) {
 		evi_req_end(req, _evi_pl_req_do(req));
@@ -89,6 +91,8 @@ static ev_code_t _evi_pl_req_stop(ev_req_t req) {
 	evi_pl_evn_mask_t mask = 0;
 	if (fd->ioq.read_n) mask |= EVI_PL_READABLE;
 	if (fd->ioq.write_n) mask |= EVI_PL_WRITABLE;
+
+	evi_dlist_del(req_ioq, req);
 
 	return evi_pl_impl_setmask(req->queue, fd, fd->fd, mask);
 }
@@ -125,6 +129,14 @@ static ev_code_t evi_queue_impl_notify(ev_queue_t queue) {
 	}
 
 	return EV_OK;
+}
+
+static void (evi_unix_onclose)(ev_fd_t fd) {
+	for (ev_req_t i = fd->head; i; i = i->running.ioq.next) {
+		// We must iterate, as requests from multiple queues may be on the same fd
+		evi_pl_impl_setmask(i->queue, NULL, fd->fd, 0);
+		evi_req_end(i, EV_ECANCELED);
+	}
 }
 
 ev_code_t (ev_queue_poll)(ev_queue_t queue, const ev_time_t *deadline, ev_req_t *preq, ev_code_t *pcode) {
