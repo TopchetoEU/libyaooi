@@ -33,14 +33,19 @@ typedef enum {
 
 struct ev_req {
 	ev_queue_t queue;
+	ev_req_t queue_next;
 	evi_req_state_t state;
 
 	union {
 		struct {
-			ev_req_t *slot;
-			ev_req_t next;
-			#define evi_list_req_running_next(node) (node)->running.next
-			#define evi_list_req_running_slot(node) (node)->running.slot
+			ev_req_t next, *slot;
+			#define evi_list_req_queue_next(node) (node)->running.next
+			#define evi_list_req_queue_slot(node) (node)->running.slot
+
+			// TODO: should a FD keep a list of *all* requests. For now, only IOQs are kept
+			// ev_req_t fd_next, *fd_slot;
+			// #define evi_list_req_fd_next(node) (node)->running.next
+			// #define evi_list_req_fd_slot(node) (node)->running.slot
 
 			void (*cancel)(ev_req_t req);
 			bool cancelled;
@@ -70,3 +75,6 @@ static bool evi_req_begin(ev_req_t req, void (*cancel)(ev_req_t req));
 static bool evi_req_end(ev_req_t req, ev_code_t code);
 // Directly kills a `running` request. DOES NOT WORK ON `ready` TASKS
 static bool evi_req_kill(ev_req_t req);
+
+// Can be passed as a NOOP callback for cancellation
+static void evi_req_cancel_noop_cb(ev_req_t req);

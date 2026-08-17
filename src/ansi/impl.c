@@ -583,6 +583,6 @@ void ev_timesleep(ev_time_t time) {
 #define evq_sig_wait(...) evq_sig_wait(__VA_ARGS__)
 ev_code_t (evq_sig_wait)(ev_req_t req, ev_signo_t *pres) {
 	(void)pres;
-	evi_req_begin(req, NULL);
+	evi_req_begin(req, evi_req_cancel_noop_cb);
 	return EV_OK;
 }

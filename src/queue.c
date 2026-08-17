@@ -46,7 +46,7 @@ static bool evi_req_begin(ev_req_t req, void (*cancel)(ev_req_t req)) {
 	req->state = EVI_REQ_RUNNING;
 	req->running.cancel = cancel;
 	req->running.cancelled = false;
-	evi_dlist_add(req_running, req->queue->running, req);
+	evi_dlist_add(req_queue, req->queue->running, req);
 
 	ev_mutex_unlock(req->queue->lock);
 	return true;
@@ -59,7 +59,8 @@ static bool evi_req_end(ev_req_t req, ev_code_t code) {
 		return false;
 	}
 
-	evi_dlist_del(req_running, req);
+	evi_dlist_del(req_queue, req);
+
 
 	if (req->queue->dead) {
 		req->state = EVI_REQ_DEAD;
@@ -84,7 +85,7 @@ static bool evi_req_kill(ev_req_t req) {
 		return false;
 	}
 
-	evi_dlist_del(req_running, req);
+	evi_dlist_del(req_queue, req);
 	req->state = EVI_REQ_DEAD;
 
 	if (req->queue->dead) {
@@ -94,6 +95,10 @@ static bool evi_req_kill(ev_req_t req) {
 	}
 
 	return true;
+}
+
+static void evi_req_cancel_noop_cb(ev_req_t req) {
+	evi_req_end(req, EV_ECANCELED);
 }
 
 static ev_req_t evi_queue_pop(ev_queue_t queue, ev_code_t *pcode) {
@@ -167,7 +172,7 @@ void ev_req_cancel(ev_req_t req) {
 		return;
 	}
 
-	if (req->running.cancel) req->running.cancel(req);
+	req->running.cancel(req);
 	req->running.cancelled = true;
 
 	ev_mutex_unlock(req->queue->lock);

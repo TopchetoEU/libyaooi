@@ -113,7 +113,7 @@
 #else
 	static ev_code_t evi_pool_exec(evi_pool_t pool, ev_req_t req, ev_worker_t worker, void *args) {
 		(void)pool;
-		evi_req_begin(req, NULL);
+		evi_req_begin(req, evi_req_cancel_noop_cb);
 		evi_req_end(req, worker(args));
 		return EV_OK;
 	}

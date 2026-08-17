@@ -1150,7 +1150,7 @@ ev_code_t evq_sig_wait(ev_req_t req, ev_signo_t *sig) {
 	(void)sig;
 
 	// Completely ignoring this request makes sure its never delivered
-	evi_req_begin(req, NULL);
+	evi_req_begin(req, evi_req_cancel_noop_cb);
 	return EV_OK;
 }
 
