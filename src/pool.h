@@ -28,7 +28,7 @@ typedef struct ev_pool {
 		evi_pool_worker_t worker_head;
 		#define evi_list_pool_worker_next(node) (node)->next
 	#endif
-} eiv_pool_s, *evi_pool_t;
+} evi_pool_s, *evi_pool_t;
 
 typedef struct {
 	#ifdef EV_USE_MULTITHREAD

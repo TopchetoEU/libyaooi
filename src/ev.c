@@ -4,7 +4,6 @@
 
 #define _GNU_SOURCE
 
-#include <stdlib.h>
 #include <stdint.h>
 
 #include <ev/conf.h>
@@ -23,7 +22,7 @@ const char *ev_strerr(ev_code_t code) {
 	switch (code) {
 		#define EV_SIGDEF_SWITCH_X(name, code, msg) case code: return msg;
 		EV_SIGDEF(EV_SIGDEF_SWITCH_X)
-		// #undef EV_SIGDEF_SWITCH_X
+		#undef EV_SIGDEF_SWITCH_X
 		default: return "unknown OS-specific error";
 	}
 }

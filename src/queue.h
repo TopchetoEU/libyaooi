@@ -19,6 +19,7 @@ struct ev_queue {
 	bool dead;
 
 	evi_queue_impl_t impl;
+	evi_pool_s pool;
 };
 
 static ev_req_t evi_queue_pop(ev_queue_t queue, ev_code_t *pcode);

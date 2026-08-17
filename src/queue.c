@@ -13,6 +13,7 @@
 #include "./utils/lists.h"
 
 #include "./impl.c"
+#include "./pool.c"
 
 static bool evi_queue_trykill(ev_queue_t queue) {
 	if (!queue->dead) goto fail;
@@ -125,12 +126,15 @@ ev_queue_t ev_queue_new() {
 	queue->running = NULL;
 	queue->dead = false;
 
+	evi_pool_init(&queue->pool);
 	ev_mutex_new(queue->lock);
 
 	return queue;
 }
 void ev_queue_free(ev_queue_t queue) {
 	ev_mutex_lock(queue->lock);
+
+	evi_pool_free(&queue->pool);
 
 	if (queue->dead) {
 		ev_mutex_unlock(queue->lock);
@@ -170,4 +174,7 @@ void ev_req_cancel(ev_req_t req) {
 void ev_req_free(ev_req_t req) {
 	assert(req->state != EVI_REQ_DEAD);
 	free(req);
+}
+ev_code_t ev_req_exec(ev_req_t req, ev_worker_t worker, void *args) {
+	return evi_pool_exec(&req->queue->pool, req, worker, args);
 }

@@ -86,7 +86,7 @@ static void _evi_pool_cancelcb(ev_req_t req) {
 		evi_list_add(pool_worker, pool->worker_head, pool_worker);
 
 	begin:
-		evi_req_begin(req, evi_pool_exec_cancel);
+		evi_req_begin(req, _evi_pool_cancelcb);
 		return EV_OK;
 	}
 
