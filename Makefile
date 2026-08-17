@@ -1,15 +1,17 @@
-override CCFLAGS += -Iinc -Wall -Wextra -Wno-unused-function -fPIC
+CFLAGS += -Iinc -Wall -Wextra -Wno-unused-function -fPIC
 
-HOST ?= $(shell uname)
 TARGET ?= $(shell uname)
 LIBPREFIX ?= bin/$(TARGET)/lib
+
+CC ?= cc
+AR ?= ar
 
 TARGET_CC := $(CROSS_COMPILE)$(CC)
 TARGET_AR := $(CROSS_COMPILE)$(AR)
 
 ifeq ($(TARGET),Windows)
-	override LDFLAGS += -lws2_32
-	LIBPREFIX ?= bin/Windows/
+	LDFLAGS += -lws2_32
+	LIBPREFIX := bin/Windows/
 endif
 
 NAME ?= ev
@@ -25,7 +27,7 @@ else
 endif
 
 ifeq ($(DEBUG),yes)
-	override CCFLAGS += -g
+	CFLAGS += -g
 endif
 
 .PHONY: sources flags all clean
@@ -37,16 +39,18 @@ clean:
 sources:
 	echo $(SRCS)
 flags:
-	echo $(CCFLAGS)
+	echo $(CFLAGS)
 
 $(SHARED): $(OBJECT) | bin/$(TARGET)/
-	$(TARGET_CC) $(CCFLAGS) -shared $^ -o $@ $(LDFLAGS)
+	$(TARGET_CC) $(CFLAGS) -shared $^ -o $@ $(LDFLAGS)
 
-%.a: %.o | bin/$(TARGET)/
+$(STATIC): $(OBJECT) | bin/$(TARGET)/
 	$(TARGET_AR) rcs $@ $^
 
-$(LIBPREFIX)ev.o: src/ev.c | bin/$(TARGET)/
-	$(TARGET_CC) $(CCFLAGS) -c $^ -o $@
+$(OBJECT): src/ev.c | bin/$(TARGET)/
+	$(TARGET_CC) $(CFLAGS) -c $< -o $(OBJECT) -MMD
 
 %/:
 	mkdir -p $@
+
+-include $(OBJECT:.o=.d)
