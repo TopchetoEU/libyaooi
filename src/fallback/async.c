@@ -67,7 +67,7 @@ an implementation of the ev.h interface function.
 #define EVI_SOCKET_ACCEPT_PARAMS(ARG, SEP) ARG(ev_filelist_t, fl) SEP ARG(ev_fd_t, server) SEP ARG(ev_fd_t*, pres) SEP ARG(ev_addr_t*, paddr) SEP ARG(uint16_t*, pport)
 
 #define EVI_PROC_SPAWN_PARAMS(ARG, SEP) \
-	ARG(ev_filelist_t, fl) SEP ARG(ev_proc_t*, pres) SEP ARG(ev_spawn_flags_t, flags) \
+	ARG(ev_filelist_t, fl) SEP ARG(ev_proc_t*, pres) SEP ARG(ev_spawn_flags_t, flags) SEP \
 	ARG(const char**, argv) SEP ARG(const char**, env) SEP ARG(const char*, cwd) SEP \
 	ARG(ev_fd_t*, pin) SEP ARG(ev_fd_t*, pout) SEP ARG(ev_fd_t*, perr)
 #define EVI_PROC_WAIT_PARAMS(ARG, SEP) ARG(ev_proc_t, proc) SEP ARG(int*, psig) SEP ARG(int*, pcode)
