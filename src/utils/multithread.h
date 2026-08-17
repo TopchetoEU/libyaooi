@@ -1,15 +1,17 @@
 #pragma once
 
+#include <stdint.h>
+#include <signal.h> // IWYU pragma: keep
+#include <errno.h> // IWYU pragma: keep
+#include <stdlib.h>
+
 #include <ev/time.h>
 #include <ev/conf.h>
 #include <ev/errno.h>
 
-#include <assert.h>
-
 #if defined EV_USE_MULTITHREAD && defined EV_USE_WIN32
 	#include <winsock2.h>
 	#include <windows.h>
-	#include <stdlib.h>
 
 	typedef HANDLE ev_thread_t[1];
 	typedef CRITICAL_SECTION ev_mutex_t[1];
@@ -29,16 +31,7 @@
 	#define ev_cond_free(cond) ((void)cond)
 	#define ev_cond_wait(cond, mut) (void)SleepConditionVariableCS(cond, mut, INFINITE)
 	static inline ev_code_t ev_cond_timewait(ev_cond_t cond, ev_mutex_t mut, ev_time_t timeout) {
-		LARGE_INTEGER counter, freq;
-		QueryPerformanceCounter(&counter);
-		QueryPerformanceFrequency(&freq);
-
-		int64_t ms =
-			ev_timems(timeout) -
-			(counter.QuadPart / freq.QuadPart) * 1000 +
-			(int64_t)(counter.QuadPart % freq.QuadPart) * 1000LL / freq.QuadPart -
-
-		int64_t ms = ev_timems(ev_timesub(timeout, curr));
+		int64_t ms = ev_timems(ev_timesub(timeout, ev_time(EV_CLOCK_MONOTIME)));
 		if (ms < 0) ms = 0;
 
 		if (!SleepConditionVariableCS(cond, mut, ms)) return EV_ETIMEDOUT;
@@ -48,9 +41,6 @@
 	#define ev_cond_signal(cond) (void)WakeConditionVariable(cond)
 #elif defined EV_USE_MULTITHREAD && defined EV_USE_POSIX
 	#include <pthread.h>
-	#include <signal.h>
-	#include <errno.h> // IWYU pragma: keep
-	#include <stdlib.h>
 
 	typedef pthread_t ev_thread_t[1];
 	typedef pthread_mutex_t ev_mutex_t[1];
