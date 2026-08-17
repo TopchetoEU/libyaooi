@@ -1,4 +1,4 @@
-CFLAGS += -Iinc -Wall -Wextra -Wno-unused-function -fPIC
+override CFLAGS += -Iinc -Wall -Wextra -Wno-unused-function -fPIC
 
 TARGET ?= $(shell uname)
 LIBPREFIX ?= bin/$(TARGET)/lib
@@ -27,7 +27,7 @@ else
 endif
 
 ifeq ($(DEBUG),yes)
-	CFLAGS += -g
+	override CFLAGS += -g
 endif
 
 .PHONY: sources flags all clean
