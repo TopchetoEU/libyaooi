@@ -1,10 +1,5 @@
 #pragma once
 
-#include <ev/conf.h>
-#include <ev/errno.h>
-#include <ev/sync.h>
-#include <ev.h>
-
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -12,11 +7,12 @@
 #include <stddef.h>
 #include <wchar.h>
 
+#include <winerror.h>
+#include <winsock2.h>
 #include <windows.h>
 #include <errhandlingapi.h>
 #include <fileapi.h>
 #include <handleapi.h>
-#include <winsock2.h>
 #include <ws2tcpip.h>
 #include <ws2ipdef.h>
 #include <shlobj.h>
@@ -24,24 +20,41 @@
 #include <processthreadsapi.h>
 #include <synchapi.h>
 
+#include <ev/conf.h>
+#include <ev/errno.h>
+#include <ev/io.h>
+#include <ev/filelist.h>
+#include <ev/queue.h>
+
 #include "./impl.h" // IWYU pragma: export
 
-#include "./utils.h"
+#include "../utils/lists.h"
+#include "../filelist.c"
+#include "../fallback/queue.c" // IWYU pragma: export
+#include "../queue.c"
+#include "ev/time.h"
 
 // FIXME: never before run code, shat it out in an evening.
 // Consider windows as unsupported, until I can be bothered to cross-compile luajit
 
 #define COMBINE64(a, b) (((uint64_t)(b) << 32) | (a))
 
-static SOCKET evi_win_sock_new(ev_proto_t proto, ev_addr_type_t type) {
-	return socket(
-		type == EV_ADDR_IPV4 ? AF_INET : AF_INET6,
-		proto == EV_PROTO_UDP ? SOCK_DGRAM : SOCK_STREAM,
-		proto == EV_PROTO_UDP ? IPPROTO_UDP : IPPROTO_TCP
-	);
+static bool _evi_win_initialized = false;
+
+static void _evi_win_init() {
+	if (_evi_win_initialized) return;
+	_evi_win_initialized = true;
+
+	WSADATA data;
+	WSAStartup(MAKEWORD(2, 2), &data);
+	// ev->in = evi_win_mkhnd(GetStdHandle(STD_INPUT_HANDLE));
+	// ev->out = evi_win_mkhnd(GetStdHandle(STD_OUTPUT_HANDLE));
+	// ev->err = evi_win_mkhnd(GetStdHandle(STD_ERROR_HANDLE));
+
+	// return EV_OK;
 }
 
-static char *evi_win_getpath(int id, const wchar_t *suffix) {
+static char *_evi_win_getpath(int id, const wchar_t *suffix) {
 	wchar_t *buff = suffix ? malloc(sizeof *buff * (MAX_PATH + wcslen(suffix) + 1)) : malloc(sizeof *buff * (MAX_PATH + 1));
 	if (!buff) return NULL;
 	if (SHGetFolderPathW(NULL, id, NULL, 0, buff) != S_OK) return NULL;
@@ -52,27 +65,48 @@ static char *evi_win_getpath(int id, const wchar_t *suffix) {
 	free(buff);
 	return res;
 }
-
-static int evi_win_child_std_new(
-	bool in,
-	HANDLE *pparent,
-	HANDLE *pchild
-) {
-	SECURITY_ATTRIBUTES attribs = { .nLength = sizeof attribs, .bInheritHandle = true };
-
-	if (std == STD_INPUT_HANDLE) {
-		if (!CreatePipe(pchild, pparent, &attribs, 0)) return -1;
-	}
-	else {
-		if (!CreatePipe(pparent, pchild, &attribs, 0)) return -1;
-	}
-
-	if (!SetHandleInformation(*pparent, HANDLE_FLAG_INHERIT, 0)) return -1;
-
-	return 0;
+static SOCKET _evi_win_sock_new(ev_proto_t proto, ev_addr_type_t type) {
+	return socket(
+		type == EV_ADDR_IPV4 ? AF_INET : AF_INET6,
+		proto == EV_PROTO_UDP ? SOCK_DGRAM : SOCK_STREAM,
+		proto == EV_PROTO_UDP ? IPPROTO_UDP : IPPROTO_TCP
+	);
 }
 
-static wchar_t *evi_win_argv_to_cmdline(const char **argv) {
+static int _evi_win_child_std_new(bool in, HANDLE *pparent, HANDLE *pchild, ev_fd_t *pnew) {
+	SECURITY_ATTRIBUTES attribs = { .nLength = sizeof attribs, .bInheritHandle = true };
+
+	ev_fd_t res = malloc(sizeof *res);
+	if (!res) return -1;
+
+	HANDLE parent, child;
+
+	if (in) {
+		if (!CreatePipe(&child, &parent, &attribs, 0)) {
+			free(res);
+			return -1;
+		}
+	}
+	else {
+		if (!CreatePipe(&parent, &child, &attribs, 0)) {
+			free(res);
+			return -1;
+		}
+	}
+
+	if (!SetHandleInformation(&parent, HANDLE_FLAG_INHERIT, 0)) {
+		CloseHandle(parent);
+		CloseHandle(child);
+		free(res);
+		return -1;
+	}
+
+	*pparent = parent;
+	*pchild = child;
+	*pnew = res;
+	return 0;
+}
+static wchar_t *_evi_win_argv_to_cmdline(const char **argv) {
 	size_t n = 0, buff_n = 0;
 
 	for (const char **it = argv; *it; it++) {
@@ -132,7 +166,7 @@ static wchar_t *evi_win_argv_to_cmdline(const char **argv) {
 	buff = realloc(buff, sizeof *buff * (curr - buff));
 	return buff;
 }
-static wchar_t *evi_win_envp_to_envblock(const char **envp) {
+static wchar_t *_evi_win_envp_to_envblock(const char **envp) {
 	if (!envp) return NULL;
 
 	size_t n = 0, buff_n = 0;
@@ -160,73 +194,376 @@ static wchar_t *evi_win_envp_to_envblock(const char **envp) {
 	return buff;
 }
 
-ev_handle_t ev_handle_new(ev_t ev, uint64_t fd) {
-	(void)ev;
-	return evi_win_mkhnd((HANDLE)fd);
+static void _ev_win_sig_cancel(ev_req_t req) {
+	(void)req;
 }
 
-ev_code_t evs_read(ev_handle_t fd, char *buff, size_t *pn) {
-	switch (fd->kind) {
-		case EVI_WIN_HND: {
-			DWORD out_n;
+static void evi_win_mkhnd(ev_filelist_t fl, ev_fd_t res, HANDLE hnd) {
+	res->owned = true;
+	res->impl.kind = EVI_WIN_HND;
+	res->impl.hnd = hnd;
 
-			if (!ReadFile(fd->hnd, (void*)buff, *pn, &out_n, NULL)) {
-				if (GetLastError() == ERROR_HANDLE_EOF || GetLastError() == ERROR_BROKEN_PIPE) {
-					*pn = 0;
-					return EV_OK;
-				}
+	evi_dlist_add(fl, fl->fd_head, res);
+}
+static void evi_win_mksock(ev_filelist_t fl, ev_fd_t res, SOCKET sock) {
+	res->owned = true;
+	res->impl.kind = EVI_WIN_SOCK;
+	res->impl.sock = sock;
 
-				return evi_win_conv_errno(GetLastError());
-			}
-			*pn = out_n;
-			return EV_OK;
-		}
-		case EVI_WIN_SOCK: {
-			int res = recv(fd->sock, (void*)buff, *pn, 0);
-			if (res < 0) return evi_win_conv_errno(WSAGetLastError());
+	evi_dlist_add(fl, fl->fd_head, res);
+}
 
-			*pn = res;
-			return EV_OK;
-		}
-		default: return EV_EBADF;
+static wchar_t *evi_win_fix_path(wchar_t *path) {
+	for (wchar_t *it = wcschr(path, '/'); it; it = wcschr(path, '/')) {
+		*it = '\\';
+	}
+
+	return path;
+}
+// Everybody uses utf8, but NOOOOO, windows just HAD to use utf16
+static wchar_t *evi_win_conv_utf8(const char *str, size_t extra_n) {
+	int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, str, -1, NULL, 0);
+	if (len == 0) return NULL;
+
+	wchar_t *wstr = malloc(sizeof *wstr * (len + extra_n));
+	if (!wstr) {
+		SetLastError(ERROR_OUTOFMEMORY);
+		return NULL;
+	}
+
+	MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, str, -1, wstr, len);
+	return wstr;
+}
+static char *evi_win_conv_utf16(const wchar_t *wstr) {
+	int len = WideCharToMultiByte(CP_UTF8, MB_ERR_INVALID_CHARS, wstr, -1, NULL, 0, NULL, NULL);
+	if (len == 0) return NULL;
+
+	char *str = malloc(len);
+	if (!str) {
+		SetLastError(ERROR_OUTOFMEMORY);
+		return NULL;
+	}
+
+	WideCharToMultiByte(CP_UTF8, MB_ERR_INVALID_CHARS, wstr, -1, str, len, NULL, NULL);
+	return str;
+}
+
+static ev_time_t evi_win_conv_filetime(FILETIME filetime) {
+	static const uint64_t EPOCH_DIFFERENCE = 11644473600;
+
+	uint64_t total_ticks = ((uint64_t)filetime.dwHighDateTime << 32) | (uint64_t)filetime.dwLowDateTime;
+
+	return (ev_time_t) {
+		.sec = (time_t)(total_ticks / 100000000) - EPOCH_DIFFERENCE,
+		.nsec = (long)(total_ticks % 100000000) * 100,
+	};
+}
+static ev_code_t evi_win_conv_errno(int winerr) {
+	switch (winerr) {
+		case ERROR_ACCESS_DENIED: return EV_EPERM;
+		case ERROR_ACTIVE_CONNECTIONS: return EV_EAGAIN;
+		case ERROR_ADDRESS_ALREADY_ASSOCIATED:  return EV_EADDRINUSE;
+		case ERROR_ALREADY_EXISTS: return EV_EEXIST;
+		case ERROR_BAD_DEVICE: return EV_ENODEV;
+		case ERROR_BAD_EXE_FORMAT: return EV_ENOEXEC;
+		case ERROR_BAD_NET_NAME: return EV_ENOENT;
+		case ERROR_BAD_NET_RESP: return EV_ENOSYS;
+		case ERROR_BAD_NETPATH: return EV_ENOENT;
+		case ERROR_BAD_PATHNAME: return EV_ENOENT;
+		case ERROR_BAD_PIPE: return EV_EPIPE;
+		case ERROR_BAD_UNIT: return EV_ENODEV;
+		case ERROR_BAD_USERNAME: return EV_EINVAL;
+		case ERROR_BEGINNING_OF_MEDIA: return EV_EIO;
+		// case ERROR_BROKEN_PIPE: return EV_EOF;
+		case ERROR_BROKEN_PIPE: return EV_EPIPE;
+		case ERROR_BUFFER_OVERFLOW: return EV_EFAULT;
+		case ERROR_BUS_RESET: return EV_EIO;
+		case ERROR_BUSY: return EV_EBUSY;
+		case ERROR_CALL_NOT_IMPLEMENTED: return EV_ENOSYS;
+		case ERROR_CANCELLED: return EV_EINTR;
+		case ERROR_CANNOT_MAKE: return EV_EPERM;
+		case ERROR_CANT_RESOLVE_FILENAME: return EV_ELOOP;
+		case ERROR_CHILD_NOT_COMPLETE: return EV_EBUSY;
+		case ERROR_COMMITMENT_LIMIT: return EV_EAGAIN;
+		case ERROR_CONNECTION_ABORTED: return EV_ECONNABORTED;
+		case ERROR_CONNECTION_REFUSED: return EV_ECONNREFUSED;
+		case ERROR_CRC: return EV_EIO;
+		case ERROR_DEV_NOT_EXIST: return EV_ENOENT;
+		case ERROR_DEVICE_DOOR_OPEN: return EV_EIO;
+		case ERROR_DEVICE_IN_USE: return EV_EAGAIN;
+		case ERROR_DEVICE_REQUIRES_CLEANING: return EV_EIO;
+		case ERROR_DIR_NOT_EMPTY: return EV_ENOTEMPTY;
+		case ERROR_DIRECTORY: return EV_ENOTDIR;
+		case ERROR_DISK_CORRUPT: return EV_EIO;
+		case ERROR_DISK_FULL: return EV_ENOSPC;
+		case ERROR_DS_GENERIC_ERROR: return EV_EIO;
+		case ERROR_DUP_NAME: return EV_ENOTUNIQ;
+		case ERROR_EA_LIST_INCONSISTENT: return EV_EINVAL;
+		case ERROR_EA_TABLE_FULL: return EV_ENOSPC;
+		case ERROR_EAS_DIDNT_FIT: return EV_ENOSPC;
+		case ERROR_EAS_NOT_SUPPORTED: return EV_ENOTSUP;
+		case ERROR_END_OF_MEDIA: return EV_ENOSPC;
+		case ERROR_EOM_OVERFLOW: return EV_EIO;
+		case ERROR_EXE_MACHINE_TYPE_MISMATCH: return EV_ENOEXEC;
+		case ERROR_EXE_MARKED_INVALID: return EV_ENOEXEC;
+		case ERROR_FILE_CORRUPT: return EV_EEXIST;
+		case ERROR_FILE_EXISTS: return EV_EEXIST;
+		case ERROR_FILE_INVALID: return EV_ENXIO;
+		case ERROR_FILE_NOT_FOUND: return EV_ENOENT;
+		case ERROR_FILEMARK_DETECTED: return EV_EIO;
+		case ERROR_FILENAME_EXCED_RANGE: return EV_ENAMETOOLONG;
+		case ERROR_GEN_FAILURE: return EV_EIO;
+		case ERROR_HANDLE_DISK_FULL: return EV_ENOSPC;
+		case ERROR_HANDLE_EOF: return EV_ENODATA;
+		case ERROR_HOST_UNREACHABLE: return EV_EHOSTUNREACH;
+		case ERROR_INSUFFICIENT_BUFFER: return EV_EINVAL;
+		case ERROR_INVALID_ADDRESS: return EV_EINVAL;
+		case ERROR_INVALID_AT_INTERRUPT_TIME: return EV_EINTR;
+		case ERROR_INVALID_BLOCK_LENGTH: return EV_EIO;
+		case ERROR_INVALID_DATA: return EV_EINVAL;
+		case ERROR_INVALID_DRIVE: return EV_ENODEV;
+		case ERROR_INVALID_EA_NAME: return EV_EINVAL;
+		case ERROR_INVALID_EXE_SIGNATURE: return EV_ENOEXEC;
+		case ERROR_INVALID_FLAGS: return EV_EBADF;
+		case ERROR_INVALID_FUNCTION: return EV_EISDIR;
+		// case ERROR_INVALID_FUNCTION: return EV_EINVAL;
+		case ERROR_INVALID_HANDLE: return EV_EBADF;
+		case ERROR_INVALID_NAME: return EV_ENOENT;
+		case ERROR_INVALID_PARAMETER: return EV_EINVAL;
+		case ERROR_INVALID_REPARSE_DATA: return EV_ENOENT;
+		case ERROR_INVALID_SIGNAL_NUMBER: return EV_EINVAL;
+		case ERROR_IO_DEVICE: return EV_EIO;
+		case ERROR_IO_INCOMPLETE: return EV_EAGAIN;
+		case ERROR_IO_PENDING: return EV_EAGAIN;
+		case ERROR_IOPL_NOT_ENABLED: return EV_ENOEXEC;
+		case ERROR_LOCK_VIOLATION: return EV_EBUSY;
+		case ERROR_MAX_THRDS_REACHED: return EV_EAGAIN;
+		case ERROR_META_EXPANSION_TOO_LONG: return EV_EINVAL;
+		case ERROR_MOD_NOT_FOUND: return EV_ENOENT;
+		case ERROR_MORE_DATA: return EV_EMSGSIZE;
+		case ERROR_NEGATIVE_SEEK: return EV_EINVAL;
+		case ERROR_NETNAME_DELETED: return EV_ECONNRESET;
+		case ERROR_NETWORK_UNREACHABLE: return EV_ENETUNREACH;
+		case ERROR_NO_DATA_DETECTED: return EV_EIO;
+		case ERROR_NO_DATA: return EV_EPIPE;
+		case ERROR_NO_MEDIA_IN_DRIVE: return EV_ENOMEDIUM;
+		case ERROR_NO_MORE_FILES: return EV_ENOENT;
+		case ERROR_NO_MORE_ITEMS: return EV_ENOENT;
+		case ERROR_NO_MORE_SEARCH_HANDLES: return EV_ENFILE;
+		case ERROR_NO_PROC_SLOTS: return EV_EAGAIN;
+		case ERROR_NO_SIGNAL_SENT: return EV_EIO;
+		case ERROR_NO_SYSTEM_RESOURCES: return EV_EFBIG;
+		case ERROR_NO_TOKEN: return EV_EINVAL;
+		case ERROR_NO_UNICODE_TRANSLATION: return EV_ECHARSET;
+		case ERROR_NOACCESS: return EV_EACCES;
+		case ERROR_NONE_MAPPED: return EV_EINVAL;
+		case ERROR_NONPAGED_SYSTEM_RESOURCES: return EV_EAGAIN;
+		case ERROR_NOT_CONNECTED: return EV_ENOTCONN;
+		case ERROR_NOT_ENOUGH_MEMORY: return EV_ENOMEM;
+		case ERROR_NOT_ENOUGH_QUOTA: return EV_EIO;
+		case ERROR_NOT_OWNER: return EV_EPERM;
+		case ERROR_NOT_READY: return EV_ENOMEDIUM;
+		case ERROR_NOT_SAME_DEVICE: return EV_EXDEV;
+		case ERROR_NOT_SUPPORTED: return EV_ENOTSUP;
+		case ERROR_OPEN_FAILED: return EV_EIO;
+		case ERROR_OPEN_FILES: return EV_EAGAIN;
+		case ERROR_OPERATION_ABORTED: return EV_ECANCELED;
+		case ERROR_OUTOFMEMORY: return EV_ENOMEM;
+		case ERROR_PAGED_SYSTEM_RESOURCES: return EV_EAGAIN;
+		case ERROR_PAGEFILE_QUOTA: return EV_EAGAIN;
+		case ERROR_PATH_NOT_FOUND: return EV_ENOENT;
+		case ERROR_PIPE_BUSY: return EV_EBUSY;
+		case ERROR_PIPE_CONNECTED: return EV_EBUSY;
+		case ERROR_PIPE_LISTENING: return EV_ECOMM;
+		case ERROR_PIPE_NOT_CONNECTED: return EV_EPIPE;
+		case ERROR_POSSIBLE_DEADLOCK: return EV_EDEADLK;
+		case ERROR_PRIVILEGE_NOT_HELD: return EV_EPERM;
+		case ERROR_PROC_NOT_FOUND: return EV_ESRCH;
+		case ERROR_PROCESS_ABORTED: return EV_EFAULT;
+		case ERROR_REM_NOT_LIST: return EV_ENOENT;
+		case ERROR_SECTOR_NOT_FOUND: return EV_EINVAL;
+		case ERROR_SEEK: return EV_ESPIPE;
+		case ERROR_SEM_TIMEOUT: return EV_ETIMEDOUT;
+		case ERROR_SERVICE_REQUEST_TIMEOUT: return EV_ETIMEDOUT;
+		case ERROR_SETMARK_DETECTED: return EV_EIO;
+		case ERROR_SHARING_BUFFER_EXCEEDED: return EV_ENOLCK;
+		case ERROR_SHARING_VIOLATION: return EV_EBUSY;
+		case ERROR_SIGNAL_PENDING: return EV_EBUSY;
+		case ERROR_SIGNAL_REFUSED: return EV_EIO;
+		case ERROR_SXS_CANT_GEN_ACTCTX: return EV_ELIBBAD;
+		case ERROR_SYMLINK_NOT_SUPPORTED: return EV_EINVAL;
+		case ERROR_THREAD_1_INACTIVE: return EV_EINVAL;
+		case ERROR_TIMEOUT: return EV_EBUSY;
+		case ERROR_TOO_MANY_LINKS: return EV_EMLINK;
+		case ERROR_TOO_MANY_OPEN_FILES: return EV_EMFILE;
+		case ERROR_UNEXP_NET_ERR: return EV_EIO;
+		case ERROR_WAIT_NO_CHILDREN: return EV_ECHILD;
+		case ERROR_WORKING_SET_QUOTA: return EV_EAGAIN;
+		case ERROR_WRITE_PROTECT: return EV_EROFS;
+		case ERROR_RESOURCE_DATA_NOT_FOUND: return EV_ENOEXEC;
+		case ERROR_RESOURCE_TYPE_NOT_FOUND: return EV_ENOEXEC;
+		case ERROR_RESOURCE_NAME_NOT_FOUND: return EV_ENOEXEC;
+		case ERROR_RESOURCE_LANG_NOT_FOUND: return EV_ENOEXEC;
+
+		case WSAEACCES: return EV_EACCES;
+		case WSAEADDRINUSE: return EV_EADDRINUSE;
+		case WSAEADDRNOTAVAIL: return EV_EADDRNOTAVAIL;
+		case WSAEAFNOSUPPORT: return EV_EAFNOSUPPORT;
+		case WSAEALREADY: return EV_EALREADY;
+		case WSAECONNABORTED: return EV_ECONNABORTED;
+		case WSAECONNREFUSED: return EV_ECONNREFUSED;
+		case WSAECONNRESET: return EV_ECONNRESET;
+		case WSAEFAULT: return EV_EFAULT;
+		case WSAEHOSTUNREACH: return EV_EHOSTUNREACH;
+		case WSAEINTR: return EV_EINTR;
+		case WSAEINVAL: return EV_EINVAL;
+		case WSAEISCONN: return EV_EISCONN;
+		case WSAEMFILE: return EV_EMFILE;
+		case WSAEMSGSIZE: return EV_EMSGSIZE;
+		case WSAENETUNREACH: return EV_ENETUNREACH;
+		case WSAENOBUFS: return EV_ENOBUFS;
+		case WSAENOTCONN: return EV_ENOTCONN;
+		case WSAENOTSOCK: return EV_ENOTSOCK;
+		case WSAEPFNOSUPPORT: return EV_EPFNOSUPPORT;
+		case WSAEPROTONOSUPPORT: return EV_EPROTONOSUPPORT;
+		case WSAESHUTDOWN: return EV_EPIPE;
+		case WSAESOCKTNOSUPPORT: return EV_ESOCKTNOSUPPORT;
+		case WSAETIMEDOUT: return EV_ETIMEDOUT;
+		case WSAEWOULDBLOCK: return EV_EAGAIN;
+		case WSAHOST_NOT_FOUND: return EV_ENOENT;
+		case WSANO_DATA: return EV_ENOENT;
+
+		default: return EV_EUNKNOWN;
 	}
 }
-ev_code_t evs_write(ev_handle_t fd, char *buff, size_t *pn) {
-	switch (fd->kind) {
-		case EVI_WIN_HND: {
-			DWORD out_n;
 
-			if (!WriteFile(fd->hnd, (void*)buff, *pn, &out_n, NULL)) {
-				if (GetLastError() == ERROR_HANDLE_EOF || GetLastError() == ERROR_BROKEN_PIPE) {
-					*pn = 0;
-					return EV_OK;
-				}
-
-				return evi_win_conv_errno(GetLastError());
-			}
-			*pn = out_n;
-			return EV_OK;
+static int evi_win_conv_addr(ev_addr_t addr, uint16_t port, struct sockaddr_storage *pres) {
+	if (addr.type == EV_ADDR_IPV4) {
+		struct sockaddr_in res;
+		res.sin_family = AF_INET;
+		res.sin_port = htons(port);
+		// TODO: check if order is correct
+		memcpy(&res.sin_addr, addr.v4, sizeof res.sin_addr);
+		memcpy(pres, &res, sizeof res);
+		return sizeof res;
+	}
+	else {
+		SOCKADDR_IN6 res;
+		res.sin6_family = AF_INET6;
+		res.sin6_port = htons(port);
+		for (size_t i = 0; i < 8; i++) {
+			uint16_t netord = htons(addr.v6[i]);
+			memcpy((void*)&res.sin6_addr + i * 2, &netord, 2);
 		}
-		case EVI_WIN_SOCK: {
-			int res = send(fd->sock, (void*)buff, *pn, 0);
-			if (res < 0) return evi_win_conv_errno(WSAGetLastError());
-
-			*pn = res;
-			return EV_OK;
-		}
-		default: return EV_EBADF;
+		memcpy(pres, &res, sizeof res);
+		return sizeof res;
 	}
 }
-ev_code_t evs_sync(ev_handle_t fd) {
-	if (fd->kind != EVI_WIN_HND) return EV_EBADF;
-	if (!FlushFileBuffers(fd->hnd)) return evi_win_conv_errno(GetLastError());
+static void evi_win_conv_sockaddr(struct sockaddr_storage *sockaddr, ev_addr_t *pres, uint16_t *pport) {
+	if (sockaddr->ss_family == AF_INET) {
+		struct sockaddr_in *sockaddr_in = (void*)sockaddr;
+
+		*pport = ntohs(sockaddr_in->sin_port);
+		pres->type = EV_ADDR_IPV4;
+		memcpy(pres->v4, &sockaddr_in->sin_addr, sizeof sockaddr_in->sin_addr);
+	}
+	else {
+		struct sockaddr_in6 *sockaddr_in6 = (void*)sockaddr;
+
+		*pport = ntohs(sockaddr_in6->sin6_port);
+		pres->type = EV_ADDR_IPV6;
+		memcpy(pres->v6, &sockaddr_in6->sin6_addr, sizeof sockaddr_in6->sin6_addr);
+
+		// for (size_t i = 0; i < 8; i++) {
+		// 	pres->v6[i] = ntohs(pres->v6[i]);
+		// }
+	}
+}
+
+ev_code_t ev_fd_new(ev_filelist_t fl, ev_fd_t *pres, uint64_t fd, bool owned) {
+	ev_fd_t res = malloc(sizeof *res);
+	if (!res) return EV_ENOMEM;
+
+	evi_win_mkhnd(fl, res, (HANDLE)fd);
+	res->owned = owned;
+
+	*pres = res;
 	return EV_OK;
 }
-ev_code_t evs_stat(ev_handle_t fd, ev_stat_t *buff) {
-	if (fd->kind != EVI_WIN_HND) return EV_EBADF;
+void ev_fd_close(ev_fd_t fd) {
+	if (fd->owned) {
+		switch (fd->impl.kind) {
+			case EVI_WIN_HND: CloseHandle(fd->impl.hnd); break;
+			case EVI_WIN_SOCK: closesocket(fd->impl.sock); break;
+		}
+	}
+
+	evi_dlist_del(fl, fd);
+	free(fd);
+}
+
+ev_code_t ev_read(ev_fd_t fd, char *buff, size_t *pn) {
+	switch (fd->impl.kind) {
+		case EVI_WIN_HND: {
+			DWORD out_n;
+
+			if (!ReadFile(fd->impl.hnd, (void*)buff, *pn, &out_n, NULL)) {
+				if (GetLastError() == ERROR_HANDLE_EOF || GetLastError() == ERROR_BROKEN_PIPE) {
+					*pn = 0;
+					return EV_OK;
+				}
+
+				return evi_win_conv_errno(GetLastError());
+			}
+			*pn = out_n;
+			return EV_OK;
+		}
+		case EVI_WIN_SOCK: {
+			int res = recv(fd->impl.sock, (void*)buff, *pn, 0);
+			if (res < 0) return evi_win_conv_errno(WSAGetLastError());
+
+			*pn = res;
+			return EV_OK;
+		}
+		default: return EV_EBADF;
+	}
+}
+ev_code_t ev_write(ev_fd_t fd, char *buff, size_t *pn) {
+	switch (fd->impl.kind) {
+		case EVI_WIN_HND: {
+			DWORD out_n;
+
+			if (!WriteFile(fd->impl.hnd, (void*)buff, *pn, &out_n, NULL)) {
+				if (GetLastError() == ERROR_HANDLE_EOF || GetLastError() == ERROR_BROKEN_PIPE) {
+					*pn = 0;
+					return EV_OK;
+				}
+
+				return evi_win_conv_errno(GetLastError());
+			}
+			*pn = out_n;
+			return EV_OK;
+		}
+		case EVI_WIN_SOCK: {
+			int res = send(fd->impl.sock, (void*)buff, *pn, 0);
+			if (res < 0) return evi_win_conv_errno(WSAGetLastError());
+
+			*pn = res;
+			return EV_OK;
+		}
+		default: return EV_EBADF;
+	}
+}
+ev_code_t ev_sync(ev_fd_t fd) {
+	if (fd->impl.kind != EVI_WIN_HND) return EV_EBADF;
+	if (!FlushFileBuffers(fd->impl.hnd)) return evi_win_conv_errno(GetLastError());
+	return EV_OK;
+}
+ev_code_t ev_stat(ev_fd_t fd, ev_stat_t *buff) {
+	if (fd->impl.kind != EVI_WIN_HND) return EV_EBADF;
 
 	BY_HANDLE_FILE_INFORMATION info;
-	if (!GetFileInformationByHandle(fd->hnd, &info)) return evi_win_conv_errno(GetLastError());
+	if (!GetFileInformationByHandle(fd->impl.hnd, &info)) return evi_win_conv_errno(GetLastError());
 
 	// Fake it till we make it .-.
 
@@ -269,20 +606,13 @@ ev_code_t evs_stat(ev_handle_t fd, ev_stat_t *buff) {
 
 	return EV_OK;
 }
-void evs_close(ev_handle_t fd) {
-	switch (fd->kind) {
-		case EVI_WIN_HND:
-			CloseHandle(fd->hnd);
-			break;
-		case EVI_WIN_SOCK:
-			closesocket(fd->sock);
-			break;
-	}
-	free(fd);
-}
 
-ev_code_t evs_file_open(ev_handle_t *pres, const char *path, ev_open_flags_t flags, int mode) {
+ev_code_t ev_file_open(ev_filelist_t fl, ev_fd_t *pres, const char *path, ev_open_flags_t flags, int mode) {
 	(void)mode;
+
+	ev_fd_t res = malloc(sizeof *res);
+	if (!res) return EV_ENOMEM;
+
 	DWORD access = 0;
 	DWORD access_others = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
 	DWORD create_mode = 0;
@@ -325,22 +655,30 @@ ev_code_t evs_file_open(ev_handle_t *pres, const char *path, ev_open_flags_t fla
 	}
 
 	wchar_t *wpath = evi_win_conv_utf8(path, 0);
-	if (!wpath) return evi_win_conv_errno(GetLastError());
+	if (!wpath) {
+		free(res);
+		return evi_win_conv_errno(GetLastError());
+	}
 
 	HANDLE hnd = CreateFileW(wpath, access, access_others, NULL, create_mode, FILE_ATTRIBUTE_NORMAL | res_flags, NULL);
 	free(wpath);
-	if (hnd == INVALID_HANDLE_VALUE) return evi_win_conv_errno(GetLastError());
+	if (hnd == INVALID_HANDLE_VALUE) {
+		free(res);
+		return evi_win_conv_errno(GetLastError());
+	}
 
-	*pres = evi_win_mkhnd(hnd);
+	evi_win_mkhnd(fl, res, hnd);
+
+	*pres = res;
 	return EV_OK;
 }
-ev_code_t evs_file_read(ev_handle_t fd, char *buff, size_t *n, size_t offset) {
-	if (fd->kind != EVI_WIN_HND) return EV_EBADF;
+ev_code_t ev_file_read(ev_fd_t fd, char *buff, size_t *n, size_t offset) {
+	if (fd->impl.kind != EVI_WIN_HND) return EV_EBADF;
 
 	DWORD out_n;
 	OVERLAPPED overlapped = { .Pointer = (void*)offset };
 
-	if (!ReadFile(fd->hnd, (void*)buff, *n, &out_n, &overlapped)) {
+	if (!ReadFile(fd->impl.hnd, (void*)buff, *n, &out_n, &overlapped)) {
 		if (GetLastError() == ERROR_HANDLE_EOF || GetLastError() == ERROR_BROKEN_PIPE) {
 			*n = 0;
 			return EV_OK;
@@ -351,13 +689,13 @@ ev_code_t evs_file_read(ev_handle_t fd, char *buff, size_t *n, size_t offset) {
 	*n = out_n;
 	return EV_OK;
 }
-ev_code_t evs_file_write(ev_handle_t fd, char *buff, size_t *n, size_t offset) {
-	if (fd->kind != EVI_WIN_HND) return EV_EBADF;
+ev_code_t ev_file_write(ev_fd_t fd, char *buff, size_t *n, size_t offset) {
+	if (fd->impl.kind != EVI_WIN_HND) return EV_EBADF;
 
 	DWORD out_n;
 	OVERLAPPED overlapped = { .Pointer = (void*)offset };
 
-	if (!WriteFile(fd->hnd, buff, *n, &out_n, &overlapped)) {
+	if (!WriteFile(fd->impl.hnd, buff, *n, &out_n, &overlapped)) {
 		if (GetLastError() == ERROR_HANDLE_EOF) {
 			*n = 0;
 			return EV_OK;
@@ -368,14 +706,16 @@ ev_code_t evs_file_write(ev_handle_t fd, char *buff, size_t *n, size_t offset) {
 	*n = out_n;
 	return EV_OK;
 }
-ev_code_t evs_file_chmod(ev_handle_t hnd, int mode) {
+ev_code_t ev_file_chmod(ev_fd_t fd, int mode) {
+	(void)fd, (void)mode;
 	return EV_OK;
 }
-ev_code_t evs_file_chown(ev_handle_t hnd, int uid, int gid) {
+ev_code_t ev_file_chown(ev_fd_t fd, int uid, int gid) {
+	(void)fd, (void)uid, (void)gid;
 	return EV_OK;
 }
 
-ev_code_t evs_file_symlink(const char *path, const char *target) {
+ev_code_t ev_file_symlink(const char *path, const char *target) {
 	wchar_t *wpath = evi_win_conv_utf8(path, 0);
 	if (!wpath) return evi_win_conv_errno(GetLastError());
 
@@ -393,7 +733,7 @@ ev_code_t evs_file_symlink(const char *path, const char *target) {
 	if (!res) return evi_win_conv_errno(GetLastError());
 	return EV_OK;
 }
-ev_code_t evs_file_hardlink(const char *path, const char *target) {
+ev_code_t ev_file_hardlink(const char *path, const char *target) {
 	wchar_t *wpath = evi_win_conv_utf8(path, 0);
 	if (!wpath) return evi_win_conv_errno(GetLastError());
 
@@ -404,29 +744,38 @@ ev_code_t evs_file_hardlink(const char *path, const char *target) {
 	}
 
 	// TODO: handle directories
-	bool res = CreatHardLinkW(wtarget, wpath, 0);
+	bool res = CreateHardLinkW(wtarget, wpath, 0);
 	free(wpath);
 	free(wtarget);
 
 	if (!res) return evi_win_conv_errno(GetLastError());
 	return EV_OK;
 }
-ev_code_t evs_file_readlink(const char *path, char **pres) {
+ev_code_t ev_file_readlink(const char *path, char **pres) {
+	(void)path, (void)pres;
 	// Tough luck
 	return EV_ENOTSUP;
 }
-ev_code_t evs_file_delete(const char *path) {
+ev_code_t ev_file_remove(const char *path) {
 	wchar_t *wpath = evi_win_conv_utf8(path, 0);
 	if (!wpath) return evi_win_conv_errno(GetLastError());
 
-	bool res = DeleteFileW(wpath);
-	free(wpath);
+	if (!DeleteFileW(wpath)) {
+		if (GetLastError() != ERROR_ACCESS_DENIED) {
+			free(wpath);
+			return evi_win_conv_errno(GetLastError());
+		}
+	}
+	if (!RemoveDirectoryW(wpath)) {
+		free(wpath);
+		return evi_win_conv_errno(GetLastError());
+	}
 
-	if (!res) return evi_win_conv_errno(GetLastError());
+	free(wpath);
 	return EV_OK;
 }
 
-ev_code_t evs_dir_new(const char *path, int mode) {
+ev_code_t ev_dir_new(const char *path, int mode) {
 	(void)mode;
 
 	wchar_t *wpath = evi_win_conv_utf8(path, 0);
@@ -438,7 +787,7 @@ ev_code_t evs_dir_new(const char *path, int mode) {
 
 	return EV_OK;
 }
-ev_code_t evs_dir_open(ev_dir_t *pres, const char *path) {
+ev_code_t ev_dir_open(ev_filelist_t fl, ev_dir_t *pres, const char *path) {
 	wchar_t *wpattern = evi_win_conv_utf8(path, 2);
 	if (!wpattern) return evi_win_conv_errno(GetLastError());
 	wcscat(wpattern, L"\\*");
@@ -453,25 +802,28 @@ ev_code_t evs_dir_open(ev_dir_t *pres, const char *path) {
 	ev_dir_t res = malloc(sizeof *res);
 	if (!res) return EV_ENOMEM;
 
-	res->data = data;
-	res->hnd = hnd;
-	res->done = false;
+	res->impl.data = data;
+	res->impl.hnd = hnd;
+	res->impl.done = false;
+
+	evi_dlist_add(fl, fl->dir_head, res);
+
 	*pres = res;
 	return EV_OK;
 }
-ev_code_t evs_dir_next(ev_dir_t dir, char **pname) {
+ev_code_t ev_dir_next(ev_dir_t dir, char **pname) {
 	while (true) {
-		if (dir->done) {
+		if (dir->impl.done) {
 			*pname = NULL;
 			return EV_OK;
 		}
 
-		bool is_synth = !wcscmp(dir->data.cFileName, L".") || !wcscmp(dir->data.cFileName, L"..");
-		if (!is_synth) *pname = evi_win_conv_utf16(dir->data.cFileName);
+		bool is_synth = !wcscmp(dir->impl.data.cFileName, L".") || !wcscmp(dir->impl.data.cFileName, L"..");
+		if (!is_synth) *pname = evi_win_conv_utf16(dir->impl.data.cFileName);
 
-		if (!FindNextFileW(dir->hnd, &dir->data)) {
+		if (!FindNextFileW(dir->impl.hnd, &dir->impl.data)) {
 			if (GetLastError() == ERROR_NO_MORE_FILES) {
-				dir->done = true;
+				dir->impl.done = true;
 			}
 			else {
 				return evi_win_conv_errno(GetLastError());
@@ -481,16 +833,26 @@ ev_code_t evs_dir_next(ev_dir_t dir, char **pname) {
 		if (!is_synth) return EV_OK;
 	}
 }
-void evs_dir_close(ev_dir_t dir) {
-	FindClose(dir->hnd);
+void ev_dir_close(ev_dir_t dir) {
+	FindClose(dir->impl.hnd);
+	evi_dlist_del(fl, dir);
 	free(dir);
 }
 
-ev_code_t evs_server_bind(ev_server_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port, size_t max_n) {
-	SOCKET sock = evi_win_sock_new(proto, addr.type);
-	if (sock == INVALID_SOCKET) return evi_win_conv_errno(WSAGetLastError());
+ev_code_t ev_socket_bind(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port, size_t max_n) {
+	_evi_win_init();
+
+	ev_fd_t res = malloc(sizeof *res);
+	if (!res) return EV_ENOMEM;
+
+	SOCKET sock = _evi_win_sock_new(proto, addr.type);
+	if (sock == INVALID_SOCKET) {
+		free(res);
+		return evi_win_conv_errno(WSAGetLastError());
+	}
 
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void*)&(int) { 1 }, sizeof(int)) < 0) {
+		free(res);
 		closesocket(sock);
 		return evi_win_conv_errno(WSAGetLastError());
 	}
@@ -499,72 +861,96 @@ ev_code_t evs_server_bind(ev_server_t *pres, ev_proto_t proto, ev_addr_t addr, u
 	int len = evi_win_conv_addr(addr, port, &arg_addr);
 
 	if (bind(sock, (void*)&arg_addr, len) < 0) {
+		free(res);
 		closesocket(sock);
 		return evi_win_conv_errno(WSAGetLastError());
 	}
 	if (listen(sock, max_n) < 0) {
+		free(res);
 		closesocket(sock);
 		return evi_win_conv_errno(WSAGetLastError());
 	}
 
-	*pres = (void*)(size_t)sock;
+	evi_win_mksock(fl, res, sock);
+
+	*pres = res;
 	return EV_OK;
 }
-ev_code_t evs_server_accept(ev_handle_t *pres, ev_addr_t *paddr, uint16_t *pport, ev_server_t server) {
+ev_code_t ev_socket_accept(ev_filelist_t fl, ev_fd_t server, ev_fd_t *pres, ev_addr_t *paddr, uint16_t *pport) {
+	_evi_win_init();
+
+	ev_fd_t res = malloc(sizeof *res);
+	if (!res) return EV_ENOMEM;
+
 	struct sockaddr_storage addr = {};
 	socklen_t addr_len = sizeof addr;
 
 	SOCKET client = accept((SOCKET)(size_t)server, (void*)&addr, &addr_len);
-	if (!client) return evi_win_conv_errno(WSAGetLastError());
+	if (!client) {
+		free(res);
+		return evi_win_conv_errno(WSAGetLastError());
+	}
 
 	evi_win_conv_sockaddr(&addr, paddr, pport);
+	evi_win_mksock(fl, res, client);
 
 	*pres = (void*)(size_t)client;
 	return EV_OK;
 }
-void evs_server_close(ev_server_t server) {
-	closesocket((SOCKET)(size_t)server);
-}
+ev_code_t ev_socket_connect(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port) {
+	_evi_win_init();
 
-ev_code_t evs_socket_connect(ev_handle_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port) {
-	SOCKET sock = evi_win_sock_new(proto, addr.type);
-	if (sock == INVALID_SOCKET) return evi_win_conv_errno(WSAGetLastError());
+	ev_fd_t res = malloc(sizeof *res);
+	if (!res) return EV_ENOMEM;
+
+	SOCKET sock = _evi_win_sock_new(proto, addr.type);
+	if (sock == INVALID_SOCKET) {
+		free(res);
+		return evi_win_conv_errno(WSAGetLastError());
+	}
 
 	struct sockaddr_storage arg_addr;
 	int len = evi_win_conv_addr(addr, port, &arg_addr);
 
-	if (connect(sock, (void*)&arg_addr, len) < 0) return evi_win_conv_errno(WSAGetLastError());
+	if (connect(sock, (void*)&arg_addr, len) < 0) {
+		closesocket(sock);
+		free(res);
+		return evi_win_conv_errno(WSAGetLastError());
+	}
 
-	*pres = evi_win_mksock(sock);
+	evi_win_mksock(fl, res, sock);
+
+	*pres = res;
 	return EV_OK;
 }
 
-ev_code_t evs_proc_spawn(
-	ev_proc_t *pres,
-	const char **argv, const char **envp,
-	const char *cwd,
-	ev_spawn_stdio_flags_t in_flags, ev_handle_t *pin,
-	ev_spawn_stdio_flags_t out_flags, ev_handle_t *pout,
-	ev_spawn_stdio_flags_t err_flags, ev_handle_t *perr
+ev_code_t ev_proc_spawn(
+	ev_filelist_t fl, ev_proc_t *pres,
+	const char **argv, const char **envp, const char *cwd,
+	ev_fd_t *pin,
+	ev_fd_t *pout,
+	ev_fd_t *perr
 ) {
 	HANDLE in_parent = NULL, in_child = NULL;
 	HANDLE out_parent = NULL, out_child = NULL;
 	HANDLE err_parent = NULL, err_child = NULL;
 
-	if (in_flags == EV_SPAWN_STD_PIPE) {
-		if (evi_win_child_std_new(true, &in_parent, &in_child) < 0) goto err;
+	ev_fd_t in_res = NULL, out_res = NULL, err_res = NULL;
+
+	if (pin) {
+		if (_evi_win_child_std_new(true, &in_parent, &in_child, &in_res) < 0) goto err;
 	}
-	if (out_flags == EV_SPAWN_STD_PIPE) {
-		if (evi_win_child_std_new(false, &out_parent, &out_child) < 0) goto err_in_pipe;
+	if (pout) {
+		if (_evi_win_child_std_new(false, &out_parent, &out_child, &out_res) < 0) goto err_in_pipe;
 	}
-	if (err_flags == EV_SPAWN_STD_PIPE) {
-		if (evi_win_child_std_new(false, &err_parent, &err_child) < 0) goto err_out_pipe;
+	if (perr) {
+		if (_evi_win_child_std_new(false, &err_parent, &err_child, &err_res) < 0) goto err_out_pipe;
 	}
 
-	wchar_t *cmdline = evi_win_argv_to_cmdline(argv);
+	wchar_t *cmdline = _evi_win_argv_to_cmdline(argv);
 	if (!cmdline) goto err_err_pipe;
 
-	wchar_t *envblock = evi_win_envp_to_envblock(envp);
+	wchar_t *envblock = _evi_win_envp_to_envblock(envp);
 	if (!envblock) goto err_cmdline;
 
 	wchar_t *procname = evi_win_conv_utf8(argv[0], 0);
@@ -593,9 +979,18 @@ ev_code_t evs_proc_spawn(
 	if (out_child) CloseHandle(out_child);
 	if (err_child) CloseHandle(err_child);
 
-	if (in_parent) *pin = evi_win_mkhnd(in_parent);
-	if (out_parent) *pout = evi_win_mkhnd(out_parent);
-	if (err_parent) *perr = evi_win_mkhnd(err_parent);
+	if (pin) {
+		evi_win_mkhnd(fl, in_res, in_parent);
+		*pin = in_res;
+	}
+	if (pout) {
+		evi_win_mkhnd(fl, out_res, out_parent);
+		*pout = out_res;
+	}
+	if (perr) {
+		evi_win_mkhnd(fl, err_res, err_parent);
+		*perr = err_res;
+	}
 
 	*pres = proc_info.hProcess;
 	CloseHandle(proc_info.hThread);
@@ -621,8 +1016,8 @@ err_in_pipe:
 err:
 	return evi_win_conv_errno(GetLastError());
 }
-ev_code_t evs_proc_wait(ev_proc_t proc, int *psig, int *pcode) {
-	switch (WaitForSingleObject(proc, INFINITE)) {
+ev_code_t ev_proc_wait(ev_proc_t proc, int *psig, int *pcode) {
+	switch (WaitForSingleObject(proc->impl.hnd, INFINITE)) {
 		case WAIT_ABANDONED:
 			return EV_EDEADLK;
 		case WAIT_OBJECT_0:
@@ -634,9 +1029,9 @@ ev_code_t evs_proc_wait(ev_proc_t proc, int *psig, int *pcode) {
 	}
 
 	DWORD code;
-	if (!GetExitCodeProcess(proc, &code)) return evi_win_conv_errno(GetLastError());
+	if (!GetExitCodeProcess(proc->impl.hnd, &code)) return evi_win_conv_errno(GetLastError());
 
-	CloseHandle(proc);
+	CloseHandle(proc->impl.hnd);
 
 	*psig = -1;
 	*pcode = code;
@@ -644,7 +1039,7 @@ ev_code_t evs_proc_wait(ev_proc_t proc, int *psig, int *pcode) {
 	return EV_OK;
 }
 
-ev_code_t evs_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_flags_t flags) {
+ev_code_t ev_dns_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_flags_t flags) {
 	ADDRINFOW hints = { 0 };
 
 	if (flags & EV_AI_IPV4_MAPPED) hints.ai_flags |= EV_AI_IPV4_MAPPED;
@@ -717,32 +1112,33 @@ ev_code_t evs_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_fla
 }
 
 // TODO: implement
-
-ev_code_t ev_sig_on(ev_t ev, ev_signo_t sig) {
-	(void)ev;
+ev_code_t ev_sig_on(ev_signo_t sig) {
+	(void)sig;
 	return EV_OK;
 }
-ev_code_t ev_sig_off(ev_t ev, ev_signo_t sig) {
-	(void)ev;
+ev_code_t ev_sig_off(ev_signo_t sig) {
+	(void)sig;
 	return EV_OK;
 }
-ev_code_t evs_sig_wait(ev_signo_t *sig) {
+ev_code_t ev_sig_wait(ev_signo_t *sig) {
+	(void)sig;
 	// Since signals aren't implemneted, the correct behavior here is to block indefinitely
 	while (true) {
 		Sleep(1000);
 	}
 }
-ev_code_t ev_sig_wait(ev_t ev, void *udata, ev_signo_t *sig) {
-	ev_begin(ev);
+ev_code_t evq_sig_wait(ev_req_t req, ev_signo_t *sig) {
+	(void)sig;
 
 	// Completely ignoring this request makes sure its never delivered
+	evi_req_begin(req, _ev_win_sig_cancel);
 	return EV_OK;
 }
 
-ev_code_t evs_getpath(char **pres, ev_path_type_t type) {
+ev_code_t ev_getpath(ev_path_type_t type, char **pres) {
 	switch (type) {
 		case EV_PATH_HOME: {
-			char *res = evi_win_getpath(CSIDL_PROFILE, NULL);
+			char *res = _evi_win_getpath(CSIDL_PROFILE, NULL);
 			if (!res) return evi_win_conv_errno(GetLastError());
 
 			*pres = res;
@@ -750,21 +1146,21 @@ ev_code_t evs_getpath(char **pres, ev_path_type_t type) {
 		}
 		case EV_PATH_RUNTIME:
 		case EV_PATH_CACHE: {
-			char *res = evi_win_getpath(CSIDL_LOCAL_APPDATA, L"\\Temp");
+			char *res = _evi_win_getpath(CSIDL_LOCAL_APPDATA, L"\\Temp");
 			if (!res) return evi_win_conv_errno(GetLastError());
 
 			*pres = res;
 			return EV_OK;
 		}
 		case EV_PATH_CONFIG: {
-			char *res = evi_win_getpath(CSIDL_APPDATA, NULL);
+			char *res = _evi_win_getpath(CSIDL_APPDATA, NULL);
 			if (!res) return evi_win_conv_errno(GetLastError());
 
 			*pres = res;
 			return EV_OK;
 		}
 		case EV_PATH_DATA: {
-			char *res = evi_win_getpath(CSIDL_LOCAL_APPDATA, NULL);
+			char *res = _evi_win_getpath(CSIDL_LOCAL_APPDATA, NULL);
 			if (!res) return evi_win_conv_errno(GetLastError());
 
 			*pres = res;
@@ -785,7 +1181,7 @@ ev_code_t evs_getpath(char **pres, ev_path_type_t type) {
 	return EV_EINVAL;
 }
 
-ev_code_t evs_getenv(const char *name, char **pres) {
+ev_code_t ev_getenv(const char *name, char **pres) {
 	wchar_t *wname = evi_win_conv_utf8(name, 0);
 	if (!wname) return evi_win_conv_errno(GetLastError());
 
@@ -818,7 +1214,7 @@ ev_code_t evs_getenv(const char *name, char **pres) {
 	if (!*pres) return evi_win_conv_errno(GetLastError());
 	return EV_OK;
 }
-ev_code_t evs_setenv(const char *name, const char *val) {
+ev_code_t ev_setenv(const char *name, const char *val) {
 	wchar_t *wname = evi_win_conv_utf8(name, 0);
 	if (!wname) return evi_win_conv_errno(GetLastError());
 
@@ -834,92 +1230,69 @@ ev_code_t evs_setenv(const char *name, const char *val) {
 	if (!res) return evi_win_conv_errno(GetLastError());
 	return EV_OK;
 }
-ev_code_t evs_nextenv(void **pit, const char **ppair) {
-	if (*pit == (void*)-1) {
-		*ppair = NULL;
-		return EV_OK;
-	}
-	evi_win_nextenv_udata_t it = *pit;
 
-	if (!it) {
-		it = malloc(sizeof *it);
-		if (!it) return EV_ENOMEM;
+ev_code_t ev_enviter_new(ev_enviter_t *pres) {
+	ev_enviter_t res = malloc(sizeof *res);
+	if (!res) return EV_ENOMEM;
 
-		it->data = it->curr = GetEnvironmentStringsW();
-		if (!it->data) {
-			free(it);
-			return evi_win_conv_errno(GetLastError());
-		}
+	res->data = res->curr = GetEnvironmentStringsW();
+	if (!res->data) {
+		free(res);
+		return evi_win_conv_errno(GetLastError());
 	}
 
-	free(it->lastalloc);
+	*pres = res;
+	return EV_OK;
+}
+ev_code_t ev_enviter_next(ev_enviter_t iter, const char **pres) {
+	free(iter->lastalloc);
 
-	size_t n = wcslen(it->curr);
+	size_t n = wcslen(iter->curr);
 	if (n == 0) {
-		FreeEnvironmentStringsW(it->data);
-		free(it);
-
-		*pit = (void*)-1;
-		*ppair = NULL;
+		*pres = NULL;
 		return EV_OK;
 	}
 
-	char *pair = evi_win_conv_utf16(it->curr);
+	char *pair = evi_win_conv_utf16(iter->curr);
 	if (!pair) return evi_win_conv_errno(GetLastError());
-	it->lastalloc = pair;
-	*ppair = pair;
-	*pit = it;
-	it->curr += n + 1;
+	iter->lastalloc = pair;
+	iter->curr += n + 1;
+
+	*pres = pair;
 	return EV_OK;
 }
-
-ev_code_t ev_realtime(ev_time_t *pres) {
-	FILETIME time;
-	GetSystemTimePreciseAsFileTime(&time);
-	*pres = evi_win_conv_filetime(time);
-	return EV_OK;
-}
-ev_code_t ev_monotime(ev_time_t *pres) {
-	LARGE_INTEGER counter, freq;
-	QueryPerformanceCounter(&counter);
-	QueryPerformanceFrequency(&freq);
-
-	*pres = (ev_time_t) {
-		.sec = counter.QuadPart / freq.QuadPart,
-		.nsec = (uint64_t)(counter.QuadPart % freq.QuadPart) * 1000000000LL / freq.QuadPart,
-	};
-
-
-	return EV_OK;
+void ev_enviter_close(ev_enviter_t iter) {
+	FreeEnvironmentStringsW(iter->data);
+	free(iter);
 }
 
-void ev_sleep(ev_time_t time) {
-	Sleep(ev_timems(time));
-}
+ev_time_t ev_time(ev_clock_t clock) {
+	switch (clock) {
+		case EV_CLOCK_REALTIME: {
+			FILETIME time;
+			GetSystemTimePreciseAsFileTime(&time);
+			return evi_win_conv_filetime(time);
+		}
+		case EV_CLOCK_MONOTIME: {
+			LARGE_INTEGER counter, freq;
+			QueryPerformanceCounter(&counter);
+			QueryPerformanceFrequency(&freq);
 
-static ev_code_t evi_sync_init(ev_t ev) {
-	WSADATA data;
-	switch (WSAStartup(MAKEWORD(2, 2), &data)) {
-		case WSASYSNOTREADY: return EV_EAGAIN;
-		case WSAVERNOTSUPPORTED: return EV_ENOTSUP;
-		case WSAEINPROGRESS: return EV_EBUSY;
-		case WSAEPROCLIM: return EV_EAGAIN;
-		case WSAEFAULT: return EV_EINVAL;
-		default: break;
+			return (ev_time_t) {
+				.sec = counter.QuadPart / freq.QuadPart,
+				.nsec = (uint64_t)(counter.QuadPart % freq.QuadPart) * 1000000000LL / freq.QuadPart,
+			};
+		}
+		case EV_CLOCK_CPUTIME: {
+			FILETIME kernel, user;
+			GetThreadTimes(GetCurrentThread(), NULL, NULL, &kernel, &user);
+			return ev_timeadd(evi_win_conv_filetime(kernel), evi_win_conv_filetime(user));
+		}
+		default: return (ev_time_t) { 0, 0 };
 	}
-
-	ev->in = evi_win_mkhnd(GetStdHandle(STD_INPUT_HANDLE));
-	ev->out = evi_win_mkhnd(GetStdHandle(STD_OUTPUT_HANDLE));
-	ev->err = evi_win_mkhnd(GetStdHandle(STD_ERROR_HANDLE));
-
-	return EV_OK;
 }
-static ev_code_t evi_sync_free(ev_t ev) {
-	if (WSACleanup() != 0) return -1;
-	free(ev->in);
-	free(ev->out);
-	free(ev->err);
-	return EV_OK;
+void ev_timesleep(ev_time_t until) {
+	Sleep(ev_timems(ev_timesub(until, ev_time(EV_CLOCK_MONOTIME))));
 }
 
-#define EVI_ASYNC_SIG_WAIT
+#define evq_sig_wait(...) evq_sig_wait(__VA_ARGS__)
