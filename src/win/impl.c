@@ -194,10 +194,6 @@ static wchar_t *_evi_win_envp_to_envblock(const char **envp) {
 	return buff;
 }
 
-static void _ev_win_sig_cancel(ev_req_t req) {
-	(void)req;
-}
-
 static void evi_win_mkhnd(ev_filelist_t fl, ev_fd_t res, HANDLE hnd) {
 	res->owned = true;
 	res->impl.kind = EVI_WIN_HND;
@@ -1131,7 +1127,7 @@ ev_code_t evq_sig_wait(ev_req_t req, ev_signo_t *sig) {
 	(void)sig;
 
 	// Completely ignoring this request makes sure its never delivered
-	evi_req_begin(req, _ev_win_sig_cancel);
+	evi_req_begin(req, NULL);
 	return EV_OK;
 }
 

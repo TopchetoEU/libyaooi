@@ -12,14 +12,10 @@
 
 #include "./queue.c"
 
-static void _evi_pool_cancelcb(ev_req_t req) {
-	#ifdef EV_USE_MULTITHREAD
-		ev_thread_cancel(req->running.task.worker->thread);
-	#else
-		(void)req;
-	#endif
-}
 #ifdef EV_USE_MULTITHREAD
+	static void _evi_pool_cancelcb(ev_req_t req) {
+		ev_thread_cancel(req->running.task.worker->thread);
+	}
 
 	static void evi_pool_worker_entry(void *pargs) {
 		evi_pool_worker_t worker = (evi_pool_worker_t)pargs;
@@ -116,7 +112,7 @@ static void _evi_pool_cancelcb(ev_req_t req) {
 #else
 	static ev_code_t evi_pool_exec(evi_pool_t pool, ev_req_t req, ev_worker_t worker, void *args) {
 		(void)pool;
-		evi_req_begin(req, _evi_pool_cancelcb);
+		evi_req_begin(req, NULL);
 		evi_req_end(req, worker(args));
 	}
 	static void evi_pool_init(evi_pool_t pool) {

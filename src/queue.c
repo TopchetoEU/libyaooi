@@ -1,11 +1,12 @@
 #pragma once
 
+#include <assert.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #include <ev/conf.h>
 #include <ev/errno.h>
 #include <ev/queue.h>
-#include <stdlib.h>
 
 #include "./queue.h" // IWYU pragma: export
 
@@ -166,7 +167,7 @@ void ev_req_cancel(ev_req_t req) {
 		return;
 	}
 
-	req->running.cancel(req);
+	if (req->running.cancel) req->running.cancel(req);
 	req->running.cancelled = true;
 
 	ev_mutex_unlock(req->queue->lock);

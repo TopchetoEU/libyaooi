@@ -31,9 +31,6 @@
 	extern char **environ;
 #endif
 
-static void _evi_ansi_cancel(ev_req_t req) {
-	(void)req;
-}
 static char *_evi_ansi_getenvpath(const char *envname, const char *fallback, const char *suffix) {
 	const char *home = getenv(envname);
 	if (!home) home = fallback;
@@ -595,6 +592,6 @@ void ev_timesleep(ev_time_t time) {
 #define evq_sig_wait(...) evq_sig_wait(__VA_ARGS__)
 ev_code_t (evq_sig_wait)(ev_req_t req, ev_signo_t *pres) {
 	(void)pres;
-	evi_req_begin(req, _evi_ansi_cancel);
+	evi_req_begin(req, NULL);
 	return EV_OK;
 }
