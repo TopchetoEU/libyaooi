@@ -45,7 +45,8 @@
 		ev_mutex_unlock(worker->lock);
 	}
 
-	static ev_code_t evi_pool_exec(evi_pool_t pool, ev_req_t req, ev_worker_t worker, void *args) {
+	ev_code_t ev_req_exec(ev_req_t req, ev_worker_t worker, void *args) {
+		evi_pool_t pool = &req->queue->pool;
 		for (evi_pool_worker_t it = pool->worker_head; it; it = it->next) {
 			ev_mutex_lock(it->lock);
 			if (!it->worker && !it->kys) {
@@ -114,6 +115,7 @@
 		(void)pool;
 		evi_req_begin(req, NULL);
 		evi_req_end(req, worker(args));
+		return EV_OK;
 	}
 	static void evi_pool_init(evi_pool_t pool) {
 		(void)pool;

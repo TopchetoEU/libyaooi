@@ -11,7 +11,6 @@ an implementation of the ev.h interface function.
 
 #include <ev/conf.h>
 #include <ev/signo.h>
-#include <ev/filelist.h>
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -49,7 +48,7 @@ an implementation of the ev.h interface function.
 #define EVI_SYNC_PARAMS(ARG, SEP) ARG(ev_fd_t, fd)
 #define EVI_STAT_PARAMS(ARG, SEP) ARG(ev_fd_t, fd) SEP ARG(ev_stat_t*, buff)
 
-// #define EVI_FILE_OPEN_PARAMS(ARG, SEP) ARG(ev_filelist_t, fl) SEP ARG(ev_fd_t*, pres) SEP ARG(const char*, path) SEP ARG(ev_open_flags_t, flags) SEP ARG(int, mode)
+// #define EVI_FILE_OPEN_PARAMS(ARG, SEP) ARG(ev_fd_t*, pres) SEP ARG(const char*, path) SEP ARG(ev_open_flags_t, flags) SEP ARG(int, mode)
 #define EVI_FILE_READ_PARAMS(ARG, SEP) ARG(ev_fd_t, handle) SEP ARG(char*, buff) SEP ARG(size_t*, pn) SEP ARG(size_t, offset)
 #define EVI_FILE_WRITE_PARAMS(ARG, SEP) ARG(ev_fd_t, handle) SEP ARG(char*, buff) SEP ARG(size_t*, pn) SEP ARG(size_t, offset)
 #define EVI_FILE_CHMOD_PARAMS(ARG, SEP) ARG(ev_fd_t, hnd) SEP ARG(int, mode)
@@ -60,14 +59,14 @@ an implementation of the ev.h interface function.
 #define EVI_FILE_REMOVE_PARAMS(ARG, SEP) ARG(const char*, path)
 
 #define EVI_DIR_NEW_PARAMS(ARG, SEP) ARG(const char*, path) SEP ARG(int, mode)
-#define EVI_DIR_OPEN_PARAMS(ARG, SEP) ARG(ev_filelist_t, fl) SEP ARG(ev_dir_t*, pres) SEP ARG(const char*, path)
+#define EVI_DIR_OPEN_PARAMS(ARG, SEP) ARG(ev_dir_t*, pres) SEP ARG(const char*, path)
 #define EVI_DIR_NEXT_PARAMS(ARG, SEP) ARG(ev_dir_t, dir) SEP ARG(char**, pname)
 
-#define EVI_SOCKET_CONNECT_PARAMS(ARG, SEP) ARG(ev_filelist_t, fl) SEP ARG(ev_fd_t*, pres) SEP ARG(ev_proto_t, proto) SEP ARG(ev_addr_t, addr) SEP ARG(uint16_t, port)
-#define EVI_SOCKET_ACCEPT_PARAMS(ARG, SEP) ARG(ev_filelist_t, fl) SEP ARG(ev_fd_t, server) SEP ARG(ev_fd_t*, pres) SEP ARG(ev_addr_t*, paddr) SEP ARG(uint16_t*, pport)
+#define EVI_SOCKET_CONNECT_PARAMS(ARG, SEP) ARG(ev_fd_t*, pres) SEP ARG(ev_proto_t, proto) SEP ARG(ev_addr_t, addr) SEP ARG(uint16_t, port)
+#define EVI_SOCKET_ACCEPT_PARAMS(ARG, SEP) ARG(ev_fd_t, server) SEP ARG(ev_fd_t*, pres) SEP ARG(ev_addr_t*, paddr) SEP ARG(uint16_t*, pport)
 
 #define EVI_PROC_SPAWN_PARAMS(ARG, SEP) \
-	ARG(ev_filelist_t, fl) SEP ARG(ev_proc_t*, pres) SEP ARG(ev_spawn_flags_t, flags) SEP \
+	ARG(ev_proc_t*, pres) SEP ARG(ev_spawn_flags_t, flags) SEP \
 	ARG(const char**, argv) SEP ARG(const char**, env) SEP ARG(const char*, cwd) SEP \
 	ARG(ev_fd_t*, pin) SEP ARG(ev_fd_t*, pout) SEP ARG(ev_fd_t*, perr)
 #define EVI_PROC_WAIT_PARAMS(ARG, SEP) ARG(ev_proc_t, proc) SEP ARG(int*, psig) SEP ARG(int*, pcode)

@@ -39,7 +39,6 @@ typedef struct {
 			size_t *pn, ptr;
 		} rw;
 		struct {
-			ev_filelist_t fl;
 			ev_fd_t *pclient;
 			ev_addr_t *paddr;
 			uint16_t *pport;

@@ -21,21 +21,19 @@
 
 		bool kys;
 	} *evi_pool_worker_t;
-#endif
-
-typedef struct ev_pool {
-	#ifdef EV_USE_MULTITHREAD
+	typedef struct {
+		evi_pool_worker_t worker;
+	} evi_req_task_t;
+	typedef struct ev_pool {
 		evi_pool_worker_t worker_head;
 		#define evi_list_pool_worker_next(node) (node)->next
-	#endif
-} evi_pool_s, *evi_pool_t;
+	} evi_pool_s, *evi_pool_t;
+#else
+	typedef struct {
+	} evi_req_task_t;
+	typedef struct ev_pool {
+	} evi_pool_s, *evi_pool_t;
+#endif
 
-typedef struct {
-	#ifdef EV_USE_MULTITHREAD
-		evi_pool_worker_t worker;
-	#endif
-} evi_req_task_t;
-
-static ev_code_t evi_pool_exec(evi_pool_t pool, ev_req_t req, ev_worker_t worker, void *args);
 static void evi_pool_init(evi_pool_t pool);
 static void evi_pool_free(evi_pool_t pool);

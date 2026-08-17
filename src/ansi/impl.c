@@ -11,15 +11,11 @@
 
 #include <ev/conf.h>
 #include <ev/errno.h>
-#include <ev/filelist.h>
 #include <ev/queue.h>
 #include <ev/io.h>
 
 #include "./impl.h" // IWYU pragma: export
 
-#include "../utils/lists.h"
-
-#include "../filelist.c"
 #include "../time.c"
 #include "../queue.c"
 #include "../fallback/queue.c" // IWYU pragma: export
@@ -50,14 +46,12 @@ static char *_evi_ansi_getenvpath(const char *envname, const char *fallback, con
 	}
 }
 
-static void evi_ansi_mkfd(ev_filelist_t fl, ev_fd_t res, FILE *f) {
+static void evi_ansi_mkfd(ev_fd_t res, FILE *f) {
 	res->owned = true;
-	res->impl.kind = EVI_ANSI_FILE;
-	res->impl.file = f;
-
-	evi_dlist_add(fl, fl->fd_head, res);
+	res->kind = EVI_ANSI_FILE;
+	res->file = f;
 }
-static bool evi_ansi_mkat(ev_filelist_t fl, ev_fd_t res, const char *path) {
+static bool evi_ansi_mkat(ev_fd_t res, const char *path) {
 	size_t len = strlen(path);
 
 	char *at = malloc(len + 1);
@@ -66,14 +60,12 @@ static bool evi_ansi_mkat(ev_filelist_t fl, ev_fd_t res, const char *path) {
 	memcpy(at, path, len + 1);
 
 	res->owned = true;
-	res->impl.kind = EVI_ANSI_AT;
-	res->impl.at = at;
-
-	evi_dlist_add(fl, fl->fd_head, res);
+	res->kind = EVI_ANSI_AT;
+	res->at = at;
 	return true;
 }
 static int evi_ansi_isfd(ev_fd_t fd) {
-	return fd->impl.kind == EVI_ANSI_FILE;
+	return fd->kind == EVI_ANSI_FILE;
 }
 
 static ev_code_t evi_ansi_conv_errno(int err, ev_code_t fallback) {
@@ -184,11 +176,11 @@ static ev_code_t evi_ansi_conv_errno(int err, ev_code_t fallback) {
 	}
 }
 
-ev_code_t ev_fd_new(ev_filelist_t fl, ev_fd_t *pres, uint64_t fd, bool owned) {
+ev_code_t ev_fd_new(ev_fd_t *pres, uint64_t fd, bool owned) {
 	ev_fd_t res = malloc(sizeof *res);
 	if (!res) return EV_ENOMEM;
 
-	evi_ansi_mkfd(fl, res, (FILE*)(size_t)fd);
+	evi_ansi_mkfd(res, (FILE*)(size_t)fd);
 	res->owned = owned;
 	*pres = res;
 
@@ -197,30 +189,29 @@ ev_code_t ev_fd_new(ev_filelist_t fl, ev_fd_t *pres, uint64_t fd, bool owned) {
 void ev_fd_close(ev_fd_t fd) {
 	if (fd->owned) {
 		if (!evi_ansi_isfd(fd)) {
-			free(fd->impl.at);
+			free(fd->at);
 		}
 		else {
 			// Closing is best-effort
 			#ifdef EINTR
-				while (fclose(fd->impl.file) < 0) {
+				while (fclose(fd->file) < 0) {
 					if (errno != EINTR) break;
 				}
 			#else
-				fclose(fd->impl.file);
+				fclose(fd->file);
 			#endif
 		}
 	}
 
-	evi_dlist_del(fl, fd);
 	free(fd);
 }
 
 ev_code_t ev_read(ev_fd_t fd, char *buff, size_t *pn) {
 	if (!evi_ansi_isfd(fd)) return EV_EBADF;
 
-	clearerr(fd->impl.file);
-	size_t n = fread(buff, *pn, 1, fd->impl.file);
-	if (ferror(fd->impl.file)) return EV_EIO;
+	clearerr(fd->file);
+	size_t n = fread(buff, *pn, 1, fd->file);
+	if (ferror(fd->file)) return EV_EIO;
 
 	*pn = n;
 	return EV_OK;
@@ -230,23 +221,23 @@ ev_code_t ev_write(ev_fd_t fd, char *buff, size_t *pn) {
 
 	clearerr((FILE*)fd);
 	size_t n = fwrite(buff, *pn, 1, (FILE*)fd);
-	if (ferror(fd->impl.file)) return EV_EIO;
+	if (ferror(fd->file)) return EV_EIO;
 
 	*pn = n;
 	return EV_OK;
 }
 ev_code_t ev_sync(ev_fd_t fd) {
 	if (!evi_ansi_isfd(fd)) return EV_EBADF;
-	if (fflush(fd->impl.file) < 0) return EV_EIO;
+	if (fflush(fd->file) < 0) return EV_EIO;
 	return EV_OK;
 }
 ev_code_t ev_stat(ev_fd_t fd, ev_stat_t *buff) {
 	FILE *f;
 	bool owned = false;
 
-	if (evi_ansi_isfd(fd)) f = fd->impl.file;
+	if (evi_ansi_isfd(fd)) f = fd->file;
 	else {
-		f = fopen(fd->impl.at, "r");
+		f = fopen(fd->at, "r");
 		owned = true;
 		if (!f) return EV_ENOENT;
 	}
@@ -274,14 +265,14 @@ ev_code_t ev_stat(ev_fd_t fd, ev_stat_t *buff) {
 	return EV_OK;
 }
 
-ev_code_t ev_tty_in(ev_filelist_t fl, ev_fd_t *pres) {
-	return ev_fd_new(fl, pres, (uint64_t)(size_t)stdin, false);
+ev_code_t ev_tty_in(ev_fd_t *pres) {
+	return ev_fd_new(pres, (uint64_t)(size_t)stdin, false);
 }
-ev_code_t ev_tty_out(ev_filelist_t fl, ev_fd_t *pres) {
-	return ev_fd_new(fl, pres, (uint64_t)(size_t)stdout, false);
+ev_code_t ev_tty_out(ev_fd_t *pres) {
+	return ev_fd_new(pres, (uint64_t)(size_t)stdout, false);
 }
-ev_code_t ev_tty_err(ev_filelist_t fl, ev_fd_t *pres) {
-	return ev_fd_new(fl, pres, (uint64_t)(size_t)stderr, false);
+ev_code_t ev_tty_err(ev_fd_t *pres) {
+	return ev_fd_new(pres, (uint64_t)(size_t)stderr, false);
 }
 ev_code_t ev_tty_raw(ev_fd_t tty, ev_tty_raw_t *pres) {
 	(void)tty, (void)pres;
@@ -309,7 +300,7 @@ ev_code_t ev_file_readlink(const char *path, char **pres) {
 	return EV_ENOTSUP;
 }
 
-ev_code_t ev_file_open(ev_filelist_t fl, ev_fd_t *pres, const char *path, ev_open_flags_t flags, int mode) {
+ev_code_t ev_file_open(ev_fd_t *pres, const char *path, ev_open_flags_t flags, int mode) {
 	(void)mode;
 
 	ev_fd_t res = malloc(sizeof *res);
@@ -321,7 +312,7 @@ ev_code_t ev_file_open(ev_filelist_t fl, ev_fd_t *pres, const char *path, ev_ope
 
 	switch ((int)flags) {
 		case EV_OPEN_STAT: {
-			if (!evi_ansi_mkat(fl, res, path)) return EV_ENOMEM;
+			if (!evi_ansi_mkat(res, path)) return EV_ENOMEM;
 			*pres = res;
 			return EV_OK;
 		}
@@ -353,7 +344,7 @@ ev_code_t ev_file_open(ev_filelist_t fl, ev_fd_t *pres, const char *path, ev_ope
 	FILE *f = fopen(path, open_mode);
 	if (!f) return EV_ENOENT;
 
-	evi_ansi_mkfd(fl, res, f);
+	evi_ansi_mkfd(res, f);
 
 	*pres = res;
 	return EV_OK;
@@ -361,13 +352,13 @@ ev_code_t ev_file_open(ev_filelist_t fl, ev_fd_t *pres, const char *path, ev_ope
 ev_code_t ev_file_read(ev_fd_t fd, char *buff, size_t *pn, size_t offset) {
 	if (!evi_ansi_isfd(fd)) return EV_EBADF;
 
-	size_t curr = ftell(fd->impl.file);
-	if (fseek(fd->impl.file, offset, SEEK_SET) < 0) return EV_ESPIPE;
+	size_t curr = ftell(fd->file);
+	if (fseek(fd->file, offset, SEEK_SET) < 0) return EV_ESPIPE;
 
-	size_t n = fread(buff, 1, *pn, fd->impl.file);
-	if (ferror(fd->impl.file)) return EV_EIO;
+	size_t n = fread(buff, 1, *pn, fd->file);
+	if (ferror(fd->file)) return EV_EIO;
 
-	if (fseek(fd->impl.file, curr, SEEK_SET) < 0) return EV_ESPIPE;
+	if (fseek(fd->file, curr, SEEK_SET) < 0) return EV_ESPIPE;
 
 	*pn = n;
 	return EV_OK;
@@ -375,13 +366,13 @@ ev_code_t ev_file_read(ev_fd_t fd, char *buff, size_t *pn, size_t offset) {
 ev_code_t ev_file_write(ev_fd_t fd, char *buff, size_t *pn, size_t offset) {
 	if (!evi_ansi_isfd(fd)) return EV_EBADF;
 
-	size_t curr = ftell(fd->impl.file);
-	if (fseek(fd->impl.file, offset, SEEK_SET) < 0) return EV_ESPIPE;
+	size_t curr = ftell(fd->file);
+	if (fseek(fd->file, offset, SEEK_SET) < 0) return EV_ESPIPE;
 
-	size_t n = fwrite(buff, 1, *pn, fd->impl.file);
-	if (ferror(fd->impl.file)) return EV_EIO;
+	size_t n = fwrite(buff, 1, *pn, fd->file);
+	if (ferror(fd->file)) return EV_EIO;
 
-	if (fseek(fd->impl.file, curr, SEEK_SET) < 0) return EV_ESPIPE;
+	if (fseek(fd->file, curr, SEEK_SET) < 0) return EV_ESPIPE;
 
 	*pn = n;
 	return EV_OK;
@@ -400,8 +391,8 @@ ev_code_t ev_dir_new(const char *path, int mode) {
 	(void)mode;
 	return EV_ENOTSUP;
 }
-ev_code_t ev_dir_open(ev_filelist_t fl, ev_dir_t *pres, const char *path) {
-	(void)fl, (void)pres, (void)path;
+ev_code_t ev_dir_open(ev_dir_t *pres, const char *path) {
+	(void)pres, (void)path;
 	return EV_ENOTSUP;
 }
 ev_code_t ev_dir_next(ev_dir_t dir, char **pname) {
@@ -412,16 +403,16 @@ void evs_dir_close(ev_dir_t dir) {
 	(void)dir;
 }
 
-ev_code_t ev_socket_connect(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port) {
-	(void)fl, (void)pres, (void)proto, (void)addr, (void)port;
+ev_code_t ev_socket_connect(ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port) {
+	(void)pres, (void)proto, (void)addr, (void)port;
 	return EV_ENOTSUP;
 }
-ev_code_t ev_socket_bind(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port, size_t max_n) {
-	(void)fl, (void)pres, (void)proto, (void)addr, (void)port, (void)max_n;
+ev_code_t ev_socket_bind(ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port, size_t max_n) {
+	(void)pres, (void)proto, (void)addr, (void)port, (void)max_n;
 	return EV_ENOTSUP;
 }
-ev_code_t ev_socket_accept(ev_filelist_t fl, ev_fd_t server, ev_fd_t *pres, ev_addr_t *paddr, uint16_t *pport) {
-	(void)fl, (void)pres, (void)server, (void)paddr, (void)pport;
+ev_code_t ev_socket_accept(ev_fd_t server, ev_fd_t *pres, ev_addr_t *paddr, uint16_t *pport) {
+	(void)pres, (void)server, (void)paddr, (void)pport;
 	return EV_ENOTSUP;
 }
 
@@ -432,11 +423,11 @@ ev_code_t ev_dns_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_
 
 // Equivalent to posix's fork then exec
 ev_code_t ev_proc_spawn(
-	ev_filelist_t fl, ev_proc_t *pres, ev_spawn_flags_t flags,
+	ev_proc_t *pres, ev_spawn_flags_t flags,
 	const char **argv, const char **env, const char *cwd,
 	ev_fd_t *pin, ev_fd_t *pout, ev_fd_t *perr
 ) {
-	(void)fl, (void)pres, (void)flags;
+	(void)pres, (void)flags;
 	(void)argv, (void)env, (void)cwd;
 	(void)pin, (void)pout, (void)perr;
 	// TODO: implement with `popen`

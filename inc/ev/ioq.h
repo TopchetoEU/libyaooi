@@ -2,7 +2,6 @@
 #define EV_IOQ_H
 
 #include <ev/io.h>
-#include <ev/filelist.h>
 #include <ev/queue.h>
 #include <ev/addr.h>
 #include <ev/errno.h>
@@ -33,11 +32,11 @@ ev_code_t evq_file_read(ev_req_t req, ev_fd_t fd, char *buff, size_t *pn, size_t
 ev_code_t evq_file_write(ev_req_t req, ev_fd_t fd, char *buff, size_t *pn, size_t offset);
 
 ev_code_t evq_dir_new(ev_req_t req, const char *path, int mode);
-ev_code_t evq_dir_open(ev_req_t req, ev_filelist_t fl, ev_dir_t *pres, const char *path);
+ev_code_t evq_dir_open(ev_req_t req, ev_dir_t *pres, const char *path);
 ev_code_t evq_dir_next(ev_req_t req, ev_dir_t dir, char **pname);
 
-ev_code_t evq_socket_connect(ev_req_t req, ev_filelist_t fl, ev_fd_t *pclient, ev_proto_t proto, ev_addr_t addr, uint16_t port);
-ev_code_t evq_socket_accept(ev_req_t req, ev_filelist_t fl, ev_fd_t server, ev_fd_t *pclient, ev_addr_t *paddr, uint16_t *pport);
+ev_code_t evq_socket_connect(ev_req_t req, ev_fd_t *pclient, ev_proto_t proto, ev_addr_t addr, uint16_t port);
+ev_code_t evq_socket_accept(ev_req_t req, ev_fd_t server, ev_fd_t *pclient, ev_addr_t *paddr, uint16_t *pport);
 
 ev_code_t evq_dns_getaddrinfo(ev_req_t req, ev_addrinfo_t *pres, const char *name, ev_addrinfo_flags_t flags);
 

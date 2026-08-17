@@ -6,7 +6,6 @@
 
 #include <ev/errno.h>
 #include <ev/queue.h>
-#include <ev/filelist.h>
 #include <ev/io.h>
 #include <ev/ioq.h>
 
@@ -48,7 +47,6 @@ static ev_code_t _evi_pl_req_do(ev_req_t req) {
 		case EVI_PL_PREAD: return ev_file_read(req->running.ioq.fd, req->running.ioq.rw.buff, req->running.ioq.rw.pn, req->running.ioq.rw.ptr);
 		case EVI_PL_PWRITE: return ev_file_write(req->running.ioq.fd, req->running.ioq.rw.buff, req->running.ioq.rw.pn, req->running.ioq.rw.ptr);
 		case EVI_PL_ACCEPT: return ev_socket_accept(
-			req->running.ioq.accept.fl,
 			req->running.ioq.fd,
 			req->running.ioq.accept.pclient,
 			req->running.ioq.accept.paddr,
@@ -69,7 +67,7 @@ static ev_code_t _evi_pl_req_start(ev_req_t req) {
 	if (fd->ioq.read_n) mask |= EVI_PL_READABLE;
 	if (fd->ioq.write_n) mask |= EVI_PL_WRITABLE;
 
-	ev_code_t code = evi_pl_impl_setmask(req->queue, fd, fd->impl.fd, mask);
+	ev_code_t code = evi_pl_impl_setmask(req->queue, fd, fd->fd, mask);
 	evi_req_begin(req, _evi_pl_req_cancel);
 
 	// The handle doesn't support epoll, it must go thru the sync route
@@ -92,7 +90,7 @@ static ev_code_t _evi_pl_req_stop(ev_req_t req) {
 	if (fd->ioq.read_n) mask |= EVI_PL_READABLE;
 	if (fd->ioq.write_n) mask |= EVI_PL_WRITABLE;
 
-	return evi_pl_impl_setmask(req->queue, fd, fd->impl.fd, mask);
+	return evi_pl_impl_setmask(req->queue, fd, fd->fd, mask);
 }
 
 static ev_code_t evi_pl_init(evi_pl_t pl, ev_queue_t queue) {
@@ -204,13 +202,12 @@ ev_code_t (evq_file_write)(ev_req_t req, ev_fd_t fd, char *buff, size_t *pn, siz
 
 	return _evi_pl_req_start(req);
 }
-ev_code_t (evq_socket_accept)(ev_req_t req, ev_filelist_t fl, ev_fd_t server, ev_fd_t *pclient, ev_addr_t *paddr, uint16_t *pport) {
+ev_code_t (evq_socket_accept)(ev_req_t req, ev_fd_t server, ev_fd_t *pclient, ev_addr_t *paddr, uint16_t *pport) {
 	if (!evi_unix_isfd(server)) return EV_EBADF;
 
 	req->running.ioq.kind = EVI_PL_ACCEPT;
 	req->running.ioq.fd = server;
 
-	req->running.ioq.accept.fl = fl;
 	req->running.ioq.accept.pclient = pclient;
 	req->running.ioq.accept.paddr = paddr;
 	req->running.ioq.accept.pport = pport;

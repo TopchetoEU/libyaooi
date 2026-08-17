@@ -5,15 +5,19 @@
 #include <ev/io.h>
 
 #include "../fallback/queue.h" // IWYU pragma: export
+#include "ev/queue.h"
 
-static void evi_ansi_mkfd(ev_filelist_t fl, ev_fd_t res, FILE *f);
-static bool evi_ansi_mkat(ev_filelist_t fl, ev_fd_t res, const char *path);
+static void evi_ansi_mkfd(ev_fd_t res, FILE *f);
+static bool evi_ansi_mkat(ev_fd_t res, const char *path);
 
 static int evi_ansi_isfd(ev_fd_t fd);
 
 static ev_code_t evi_ansi_conv_errno(int err, ev_code_t fallback);
 
-typedef struct {
+struct ev_fd {
+	ev_req_t head;
+	bool owned;
+
 	enum {
 		EVI_ANSI_FILE,
 		EVI_ANSI_AT,
@@ -22,19 +26,14 @@ typedef struct {
 		FILE *file;
 		char *at;
 	};
-} evi_fd_impl_t;
-typedef struct {
-} evi_fd_ioq_t;
-
-typedef struct {
-} evi_req_ioq_t;
-
-typedef struct {
-} evi_dir_impl_t;
-
-typedef struct {
-} evi_proc_impl_t;
-
+};
+struct ev_dir {
+};
+struct ev_proc {
+};
 struct ev_enviter {
 	char **enviter;
 };
+
+typedef struct {
+} evi_req_ioq_t;

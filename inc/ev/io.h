@@ -1,7 +1,6 @@
 #ifndef EV_IO_H
 #define EV_IO_H
 
-#include <ev/filelist.h>
 #include <ev/queue.h>
 #include <ev/addr.h>
 #include <ev/errno.h>
@@ -86,7 +85,7 @@ typedef struct ev_fd *ev_fd_t;
 
 // Creates a handle from an OS-specific FD
 // If owned is false, the file won't actually be closed by ev_fd_close()
-ev_code_t ev_fd_new(ev_filelist_t fl, ev_fd_t *pres, uint64_t fd, bool owned);
+ev_code_t ev_fd_new(ev_fd_t *pres, uint64_t fd, bool owned);
 // Cancels all requests, associated to the handle and releases all resources, used by the `req`
 void ev_fd_close(ev_fd_t fd);
 
@@ -102,11 +101,11 @@ ev_code_t ev_stat(ev_fd_t fd, ev_stat_t *buff);
 typedef struct ev_tty_raw *ev_tty_raw_t;
 
 // Initializes `tty` to a refrence to `stdin`
-ev_code_t ev_tty_in(ev_filelist_t fl, ev_fd_t *pres);
+ev_code_t ev_tty_in(ev_fd_t *pres);
 // Initializes `tty` to a refrence to `stdout`
-ev_code_t ev_tty_out(ev_filelist_t fl, ev_fd_t *pres);
+ev_code_t ev_tty_out(ev_fd_t *pres);
 // Initializes `tty` to a refrence to `stderr`
-ev_code_t ev_tty_err(ev_filelist_t fl, ev_fd_t *pres);
+ev_code_t ev_tty_err(ev_fd_t *pres);
 // Begins a raw mode of the tty. ev_tty_rawend must be called on ev_tty_raw_t, stored in pres, to end the raw mode
 // Make sure to do that, as we are not calling that for you upon exit!
 ev_code_t ev_tty_raw(ev_fd_t tty, ev_tty_raw_t *pres);
@@ -126,7 +125,7 @@ ev_code_t ev_file_readlink(const char *path, char **pres);
 // (for example, if the file lives on an NFS or FUSE filesystem)
 
 // Equivalent to posix's open
-ev_code_t ev_file_open(ev_filelist_t fl, ev_fd_t *pres, const char *path, ev_open_flags_t flags, int mode);
+ev_code_t ev_file_open(ev_fd_t *pres, const char *path, ev_open_flags_t flags, int mode);
 // A file-specific read function
 ev_code_t ev_file_read(ev_fd_t fd, char *buff, size_t *pn, size_t offset);
 // A file-specific write function
@@ -140,18 +139,18 @@ typedef struct ev_dir *ev_dir_t;
 // Equivalent to posix's mkdir
 ev_code_t ev_dir_new(const char *path, int mode);
 // Equivalent to posix's opendir
-ev_code_t ev_dir_open(ev_filelist_t fl, ev_dir_t *pres, const char *path);
+ev_code_t ev_dir_open(ev_dir_t *pres, const char *path);
 // Equivalent to posix's readdir
 ev_code_t ev_dir_next(ev_dir_t dir, char **pname);
 // Equivalent to posix's closedir
 void ev_dir_close(ev_dir_t dir);
 
 // Equivalent to connect()
-ev_code_t ev_socket_connect(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port);
+ev_code_t ev_socket_connect(ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port);
 // Equivalent to bind()
-ev_code_t ev_socket_bind(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port, size_t max_n);
+ev_code_t ev_socket_bind(ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port, size_t max_n);
 // Equivalent to accept()
-ev_code_t ev_socket_accept(ev_filelist_t fl, ev_fd_t server, ev_fd_t *pres, ev_addr_t *paddr, uint16_t *pport);
+ev_code_t ev_socket_accept(ev_fd_t server, ev_fd_t *pres, ev_addr_t *paddr, uint16_t *pport);
 
 typedef struct {
 	size_t n;
@@ -177,7 +176,7 @@ typedef struct ev_proc *ev_proc_t;
 
 // Equivalent to posix's fork then exec
 ev_code_t ev_proc_spawn(
-	ev_filelist_t fl, ev_proc_t *pres, ev_spawn_flags_t flags,
+	ev_proc_t *pres, ev_spawn_flags_t flags,
 	const char **argv, const char **env, const char *cwd,
 	ev_fd_t *pin, ev_fd_t *pout, ev_fd_t *perr
 );

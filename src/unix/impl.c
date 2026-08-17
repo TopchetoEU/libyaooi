@@ -21,19 +21,16 @@
 #include <errno.h>
 #include <time.h>
 
-#include <ev/filelist.h>
 #include <ev/io.h>
 #include <ev/conf.h>
 #include <ev/errno.h>
 #include <ev/signo.h>
 
-#include "../utils/lists.h"
 #include "../utils/multithread.h"
 
 #include "./impl.h" // IWYU pragma: export
 
 #include "../time.c"
-#include "../filelist.c"
 #include "./async.c" // IWYU pragma: export
 
 #ifndef __USE_GNU
@@ -143,33 +140,30 @@ static void _evi_sig_init() {
 
 static bool evi_unix_isfd(ev_fd_t fd) {
 	#ifndef EV_USE_LINUX
-		return !fd->impl.is_at;
+		return !fd->is_at;
 	#else
 		(void)fd;
 		return true;
 	#endif
 }
-static void evi_unix_mkfd(ev_filelist_t fl, ev_fd_t res, int fd) {
+static void evi_unix_mkfd(ev_fd_t res, int fd) {
 	res->owned = true;
-	res->impl.fd = fd;
+	res->fd = fd;
 	#ifndef EV_USE_LINUX
-		res->impl.is_at = false;
+		res->is_at = false;
 	#endif
-
-	evi_dlist_add(fl, fl->fd_head, res);
 }
 #ifndef EV_USE_LINUX
-static bool evi_unix_mkat(ev_filelist_t fl, ev_fd_t res, const char *path) {
+static bool evi_unix_mkat(ev_fd_t res, const char *path) {
 	char *at = malloc(strlen(path) + 1);
 	if (!at) return false;
 
-	strcpy(res->impl.at, path);
+	strcpy(res->at, path);
 
 	res->owned = true;
-	res->impl.at = at;
-	res->impl.is_at = true;
+	res->at = at;
+	res->is_at = true;
 
-	evi_dlist_add(fl, fl->fd_head, res);
 	return true;
 }
 #endif
@@ -406,11 +400,11 @@ static void evi_unix_conv_sockaddr(struct sockaddr_storage *sockaddr, ev_addr_t 
 	}
 }
 
-ev_code_t ev_fd_new(ev_filelist_t fl, ev_fd_t *pres, uint64_t fd, bool owned) {
+ev_code_t ev_fd_new(ev_fd_t *pres, uint64_t fd, bool owned) {
 	ev_fd_t res = malloc(sizeof *res);
 	if (!res) return EV_ENOMEM;
 
-	evi_unix_mkfd(fl, res, fd);
+	evi_unix_mkfd(res, fd);
 	res->owned = owned;
 	*pres = res;
 
@@ -419,26 +413,25 @@ ev_code_t ev_fd_new(ev_filelist_t fl, ev_fd_t *pres, uint64_t fd, bool owned) {
 void ev_fd_close(ev_fd_t fd) {
 	if (fd->owned) {
 		#ifndef EV_USE_LINUX
-		if (fd->impl.is_at) {
-			free(fd->impl.at);
+		if (fd->is_at) {
+			free(fd->at);
 		}
 		else
 		#endif
 		{
-			while (close(fd->impl.fd) < 0) {
+			while (close(fd->fd) < 0) {
 				if (errno != EINTR) return;
 			}
 		}
 	}
 
-	evi_dlist_del(fl, fd);
 	free(fd);
 }
 
 ev_code_t ev_read(ev_fd_t fd, char *buff, size_t *pn) {
 	if (!evi_unix_isfd(fd)) return EV_EBADF;
 
-	ssize_t n = read(fd->impl.fd, buff, *pn);
+	ssize_t n = read(fd->fd, buff, *pn);
 	if (n < 0) return evi_unix_conv_errno(errno);
 
 	*pn = n;
@@ -447,7 +440,7 @@ ev_code_t ev_read(ev_fd_t fd, char *buff, size_t *pn) {
 ev_code_t ev_write(ev_fd_t fd, char *buff, size_t *pn) {
 	if (!evi_unix_isfd(fd)) return EV_EBADF;
 
-	ssize_t n = write(fd->impl.fd, buff, *pn);
+	ssize_t n = write(fd->fd, buff, *pn);
 	if (n < 0) return evi_unix_conv_errno(errno);
 
 	*pn = n;
@@ -455,18 +448,18 @@ ev_code_t ev_write(ev_fd_t fd, char *buff, size_t *pn) {
 }
 ev_code_t ev_sync(ev_fd_t fd) {
 	if (!evi_unix_isfd(fd)) return EV_EBADF;
-	return evi_unix_conv_errno(fsync(fd->impl.fd));
+	return evi_unix_conv_errno(fsync(fd->fd));
 }
 ev_code_t ev_stat(ev_fd_t fd, ev_stat_t *buff) {
 	struct stat res;
 
 	if (evi_unix_isfd(fd)) {
-		if (fstat(fd->impl.fd, &res) < 0) return evi_unix_conv_errno(errno);
+		if (fstat(fd->fd, &res) < 0) return evi_unix_conv_errno(errno);
 	}
 	#ifndef EV_USE_LINUX
 	else {
 		// TODO: respect NOFOLLOW
-		if (lstat(fd->impl.at, &res) < 0) return evi_unix_conv_errno(errno);
+		if (lstat(fd->at, &res) < 0) return evi_unix_conv_errno(errno);
 	}
 	#endif
 
@@ -474,14 +467,14 @@ ev_code_t ev_stat(ev_fd_t fd, ev_stat_t *buff) {
 	return EV_OK;
 }
 
-ev_code_t ev_tty_in(ev_filelist_t fl, ev_fd_t *pres) {
-	return ev_fd_new(fl, pres, STDIN_FILENO, false);
+ev_code_t ev_tty_in(ev_fd_t *pres) {
+	return ev_fd_new(pres, STDIN_FILENO, false);
 }
-ev_code_t ev_tty_out(ev_filelist_t fl, ev_fd_t *pres) {
-	return ev_fd_new(fl, pres, STDOUT_FILENO, false);
+ev_code_t ev_tty_out(ev_fd_t *pres) {
+	return ev_fd_new(pres, STDOUT_FILENO, false);
 }
-ev_code_t ev_tty_err(ev_filelist_t fl, ev_fd_t *pres) {
-	return ev_fd_new(fl, pres, STDERR_FILENO, false);
+ev_code_t ev_tty_err(ev_fd_t *pres) {
+	return ev_fd_new(pres, STDERR_FILENO, false);
 }
 ev_code_t ev_tty_raw(ev_fd_t tty, ev_tty_raw_t *pres) {
 	if (!evi_unix_isfd(tty)) return EV_EBADF;
@@ -489,7 +482,7 @@ ev_code_t ev_tty_raw(ev_fd_t tty, ev_tty_raw_t *pres) {
 	ev_tty_raw_t res = malloc(sizeof *res);
 	if (!res) return EV_ENOMEM;
 
-	res->fd = tty->impl.fd;
+	res->fd = tty->fd;
 
 	if (tcgetattr(res->fd, &res->prev_mode) < 0) {
 		free(res);
@@ -551,7 +544,7 @@ ev_code_t ev_file_readlink(const char *path, char **pres) {
 	return EV_OK;
 }
 
-ev_code_t ev_file_open(ev_filelist_t fl, ev_fd_t *pres, const char *path, ev_open_flags_t flags, int mode) {
+ev_code_t ev_file_open(ev_fd_t *pres, const char *path, ev_open_flags_t flags, int mode) {
 	int fd = -1;
 
 	ev_fd_t res = malloc(sizeof *res);
@@ -564,17 +557,17 @@ ev_code_t ev_file_open(ev_filelist_t fl, ev_fd_t *pres, const char *path, ev_ope
 		if (flags == EV_OPEN_STAT) {
 			close(fd);
 
-			if (!evi_unix_mkat(fl, res, path)) return EV_ENOMEM;
+			if (!evi_unix_mkat(res, path)) return EV_ENOMEM;
 
 			*pres = res;
 			return EV_OK;
 		}
 		else {
-			res->impl.is_at = false;
+			res->is_at = false;
 		}
 	#endif
 
-	evi_unix_mkfd(fl, res, fd);
+	evi_unix_mkfd(res, fd);
 
 	*pres = res;
 	return EV_OK;
@@ -582,7 +575,7 @@ ev_code_t ev_file_open(ev_filelist_t fl, ev_fd_t *pres, const char *path, ev_ope
 ev_code_t ev_file_read(ev_fd_t fd, char *buff, size_t *n, size_t offset) {
 	if (!evi_unix_isfd(fd)) return EV_EBADF;
 
-	ssize_t res = pread(fd->impl.fd, buff, *n, offset);
+	ssize_t res = pread(fd->fd, buff, *n, offset);
 	if (res < 0) return evi_unix_conv_errno(errno);
 	*n = res;
 	return EV_OK;
@@ -590,18 +583,18 @@ ev_code_t ev_file_read(ev_fd_t fd, char *buff, size_t *n, size_t offset) {
 ev_code_t ev_file_write(ev_fd_t fd, char *buff, size_t *n, size_t offset) {
 	if (!evi_unix_isfd(fd)) return EV_EBADF;
 
-	ssize_t res = pwrite(fd->impl.fd, buff, *n, offset);
+	ssize_t res = pwrite(fd->fd, buff, *n, offset);
 	if (res < 0) return evi_unix_conv_errno(errno);
 	*n = res;
 	return EV_OK;
 }
 ev_code_t ev_file_chmod(ev_fd_t fd, int mode) {
 	if (evi_unix_isfd(fd)) {
-		if (fchmod(fd->impl.fd, mode) < 0) return evi_unix_conv_errno(errno);
+		if (fchmod(fd->fd, mode) < 0) return evi_unix_conv_errno(errno);
 	}
 	#ifndef EV_USE_LINUX
 	else {
-		if (chmod(fd->impl.at, mode) < 0) return evi_unix_conv_errno(errno);
+		if (chmod(fd->at, mode) < 0) return evi_unix_conv_errno(errno);
 	}
 	#endif
 
@@ -609,11 +602,11 @@ ev_code_t ev_file_chmod(ev_fd_t fd, int mode) {
 }
 ev_code_t ev_file_chown(ev_fd_t fd, int uid, int gid) {
 	if (evi_unix_isfd(fd)) {
-		if (fchown(fd->impl.fd, uid, gid) < 0) return evi_unix_conv_errno(errno);
+		if (fchown(fd->fd, uid, gid) < 0) return evi_unix_conv_errno(errno);
 	}
 	#ifndef EV_USE_LINUX
 	else {
-		if (chown(fd->impl.at, uid, gid) < 0) return evi_unix_conv_errno(errno);
+		if (chown(fd->at, uid, gid) < 0) return evi_unix_conv_errno(errno);
 	}
 	#endif
 
@@ -624,7 +617,7 @@ ev_code_t ev_dir_new(const char *path, int mode) {
 	if (mkdir(path, mode) < 0) return evi_unix_conv_errno(errno);
 	else return EV_OK;
 }
-ev_code_t ev_dir_open(ev_filelist_t fl, ev_dir_t *pres, const char *path) {
+ev_code_t ev_dir_open(ev_dir_t *pres, const char *path) {
 	ev_dir_t res = malloc(sizeof *res);
 	if (!res) return EV_ENOMEM;
 
@@ -634,9 +627,8 @@ ev_code_t ev_dir_open(ev_filelist_t fl, ev_dir_t *pres, const char *path) {
 		return evi_unix_conv_errno(errno);
 	}
 
-	res->impl.dir = dir;
+	res->dir = dir;
 
-	evi_dlist_add(fl, fl->dir_head, res);
 	*pres = res;
 	return EV_OK;
 }
@@ -645,7 +637,7 @@ ev_code_t ev_dir_next(ev_dir_t dir, char **pname) {
 
 	do {
 		errno = 0;
-		ent = readdir(dir->impl.dir);
+		ent = readdir(dir->dir);
 		if (errno) return evi_unix_conv_errno(errno);
 
 		if (!ent) {
@@ -662,15 +654,14 @@ ev_code_t ev_dir_next(ev_dir_t dir, char **pname) {
 	return EV_OK;
 }
 void ev_dir_close(ev_dir_t dir) {
-	while (closedir(dir->impl.dir) < 0) {
+	while (closedir(dir->dir) < 0) {
 		if (errno != EINTR) break;
 	}
 
-	evi_dlist_del(fl, dir);
 	free(dir);
 }
 
-ev_code_t ev_socket_connect(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port) {
+ev_code_t ev_socket_connect(ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port) {
 	ev_fd_t client = malloc(sizeof *client);
 	if (!client) return EV_ENOMEM;
 
@@ -682,7 +673,7 @@ ev_code_t ev_socket_connect(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, e
 
 	if (connect(sock, (void*)&arg_addr, len) < 0) goto err_connect;
 
-	evi_unix_mkfd(fl, client, sock);
+	evi_unix_mkfd(client, sock);
 	*pres = client;
 	return EV_OK;
 
@@ -692,7 +683,7 @@ err_connect:
 	free(client);
 	return evi_unix_conv_errno(errno);
 }
-ev_code_t ev_socket_bind(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port, size_t max_n) {
+ev_code_t ev_socket_bind(ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uint16_t port, size_t max_n) {
 	ev_fd_t server = malloc(sizeof *server);
 	if (!server) return EV_ENOMEM;
 
@@ -704,10 +695,10 @@ ev_code_t ev_socket_bind(ev_filelist_t fl, ev_fd_t *pres, ev_proto_t proto, ev_a
 	struct sockaddr_storage arg_addr;
 	int len = evi_unix_conv_addr(addr, port, &arg_addr);
 
-	if (bind(server->impl.fd, (void*)&arg_addr, len) < 0) goto err_bind;
-	if (listen(server->impl.fd, max_n) < 0) goto err_listen;
+	if (bind(server->fd, (void*)&arg_addr, len) < 0) goto err_bind;
+	if (listen(server->fd, max_n) < 0) goto err_listen;
 
-	evi_unix_mkfd(fl, server, sock);
+	evi_unix_mkfd(server, sock);
 	*pres = server;
 	return EV_OK;
 
@@ -719,7 +710,7 @@ err_socket:
 	free(server);
 	return evi_unix_conv_errno(errno);
 }
-ev_code_t ev_socket_accept(ev_filelist_t fl, ev_fd_t server, ev_fd_t *pres, ev_addr_t *paddr, uint16_t *pport) {
+ev_code_t ev_socket_accept(ev_fd_t server, ev_fd_t *pres, ev_addr_t *paddr, uint16_t *pport) {
 	if (!evi_unix_isfd(server)) return EV_EBADF;
 
 	ev_fd_t client = malloc(sizeof *client);
@@ -733,7 +724,7 @@ ev_code_t ev_socket_accept(ev_filelist_t fl, ev_fd_t server, ev_fd_t *pres, ev_a
 
 	evi_unix_conv_sockaddr(&addr, paddr, pport);
 
-	evi_unix_mkfd(fl, client, res);
+	evi_unix_mkfd(client, res);
 	*pres = client;
 	return EV_OK;
 
@@ -807,7 +798,7 @@ ev_code_t ev_dns_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_
 
 // Equivalent to posix's fork then exec
 ev_code_t ev_proc_spawn(
-	ev_filelist_t fl, ev_proc_t *pres, ev_spawn_flags_t flags,
+	ev_proc_t *pres, ev_spawn_flags_t flags,
 	const char **argv, const char **env, const char *cwd,
 	ev_fd_t *pin, ev_fd_t *pout, ev_fd_t *perr
 ) {
@@ -910,20 +901,19 @@ ev_code_t ev_proc_spawn(
 	}
 
 	if (in_parent != -1) {
-		evi_unix_mkfd(fl, res_in, in_parent);
+		evi_unix_mkfd(res_in, in_parent);
 		*pin = res_in;
 	}
 	if (out_parent != -1) {
-		evi_unix_mkfd(fl, res_out, out_parent);
+		evi_unix_mkfd(res_out, out_parent);
 		*pout = res_out;
 	}
 	if (err_parent != -1) {
-		evi_unix_mkfd(fl, res_err, err_parent);
+		evi_unix_mkfd(res_err, err_parent);
 		*perr = res_err;
 	}
 
-	res->impl.pid = pid;
-	evi_dlist_add(fl, fl->proc_head, res);
+	res->pid = pid;
 	*pres = res;
 	return 0;
 
@@ -948,7 +938,7 @@ err_pipe_status:
 }
 ev_code_t ev_proc_wait(ev_proc_t proc, int *psig, int *pcode) {
 	int status;
-	if (waitpid(proc->impl.pid, &status, 0) < 0) return evi_unix_conv_errno(errno);
+	if (waitpid(proc->pid, &status, 0) < 0) return evi_unix_conv_errno(errno);
 
 	*pcode = -1;
 	*psig = -1;

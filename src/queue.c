@@ -176,6 +176,3 @@ void ev_req_free(ev_req_t req) {
 	assert(req->state != EVI_REQ_DEAD);
 	free(req);
 }
-ev_code_t ev_req_exec(ev_req_t req, ev_worker_t worker, void *args) {
-	return evi_pool_exec(&req->queue->pool, req, worker, args);
-}

@@ -13,8 +13,13 @@
 #include <ev/addr.h>
 
 #include "./async.h" // IWYU pragma: export
+#include "ev/queue.h"
 
-typedef struct {
+struct ev_fd {
+	// Common
+	ev_req_t head;
+	bool owned;
+
 	#ifndef EV_USE_LINUX
 		bool is_at;
 	#endif
@@ -24,14 +29,17 @@ typedef struct {
 			char *at;
 		#endif
 	};
-} evi_fd_impl_t;
-typedef struct {
-	DIR *dir;
-} evi_dir_impl_t;
-typedef struct {
-	pid_t pid;
-} evi_proc_impl_t;
 
+	evi_fd_ioq_t ioq;
+};
+struct ev_dir {
+	ev_req_t head;
+	DIR *dir;
+};
+struct ev_proc {
+	ev_req_t head;
+	pid_t pid;
+};
 struct ev_tty_raw {
 	int fd;
 	struct termios prev_mode;

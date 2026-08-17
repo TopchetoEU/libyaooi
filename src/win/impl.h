@@ -6,18 +6,19 @@
 #include <windows.h>
 #include <winnt.h>
 
-#include <ev/filelist.h>
 #include <ev/io.h>
 
 #include "../fallback/queue.h" // IWYU pragma: export
 
-typedef struct {
+struct ev_dir {
 	HANDLE hnd;
 	bool done;
 	WIN32_FIND_DATAW data;
-} evi_dir_impl_t;
+};
 
-typedef struct {
+struct ev_fd {
+	bool owned;
+
 	enum {
 		EVI_WIN_HND,
 		EVI_WIN_SOCK,
@@ -26,25 +27,20 @@ typedef struct {
 		HANDLE hnd;
 		SOCKET sock;
 	};
-} evi_fd_impl_t;
-
-typedef struct {
-} evi_fd_ioq_t;
-
-typedef struct {
+};
+struct ev_proc {
 	HANDLE hnd;
-} evi_proc_impl_t;
-
-typedef struct {
-} evi_req_ioq_t;
-
+};
 struct ev_enviter {
 	wchar_t *data, *curr;
 	char *lastalloc;
 };
 
-static void evi_win_mkhnd(ev_filelist_t fl, ev_fd_t res, HANDLE hnd);
-static void evi_win_mksock(ev_filelist_t fl, ev_fd_t res, SOCKET sock);
+typedef struct {
+} evi_req_ioq_t;
+
+static void evi_win_mkhnd(ev_fd_t res, HANDLE hnd);
+static void evi_win_mksock(ev_fd_t res, SOCKET sock);
 
 static wchar_t *evi_win_fix_path(wchar_t *path);
 
