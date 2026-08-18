@@ -543,14 +543,13 @@ ev_code_t ev_nextenv(void **pit, const char **ppair) {
 	return EV_OK;
 }
 
-ev_code_t ev_enviter_new(ev_enviter_t *pres) {
+ev_enviter_t ev_enviter_new() {
 	ev_enviter_t res = malloc(sizeof *res);
-	if (!res) return EV_ENOMEM;
+	if (!res) return NULL;
 
 	res->enviter = environ;
 
-	*pres = res;
-	return EV_OK;
+	return res;
 }
 ev_code_t ev_enviter_next(ev_enviter_t iter, const char **pres) {
 	char *pair = *iter->enviter;

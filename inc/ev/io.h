@@ -217,7 +217,7 @@ ev_code_t ev_env_set(const char *name, const char *val);
 
 typedef struct ev_enviter *ev_enviter_t;
 // Initializes an iterator of the env variables
-ev_code_t ev_enviter_new(ev_enviter_t *pres);
+ev_enviter_t ev_enviter_new();
 // Gets the next env variable from the iterator
 ev_code_t ev_enviter_next(ev_enviter_t iter, const char **pres);
 void ev_enviter_close(ev_enviter_t iter);

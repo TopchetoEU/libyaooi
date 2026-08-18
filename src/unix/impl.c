@@ -829,10 +829,10 @@ ev_code_t ev_proc_spawn(
 		if (_evi_unix_mkstd(true, &in_parent, &in_child, &res_in) < 0) goto err_mkstd_in;
 	}
 	if (pout) {
-		if (_evi_unix_mkstd(false, &out_parent, &out_child, &res_in) < 0) goto err_mkstd_out;
+		if (_evi_unix_mkstd(false, &out_parent, &out_child, &res_out) < 0) goto err_mkstd_out;
 	}
 	if (perr) {
-		if (_evi_unix_mkstd(false, &err_parent, &err_child, &res_in) < 0) goto err_mkstd_err;
+		if (_evi_unix_mkstd(false, &err_parent, &err_child, &res_err) < 0) goto err_mkstd_err;
 	}
 
 	pid_t pid = fork();
@@ -1205,14 +1205,13 @@ ev_code_t ev_env_set(const char *name, const char *val) {
 	return EV_OK;
 }
 
-ev_code_t ev_enviter_new(ev_enviter_t *pres) {
+ev_enviter_t ev_enviter_new() {
 	ev_enviter_t res = malloc(sizeof *res);
-	if (!res) return EV_ENOMEM;
+	if (!res) return NULL;
 
 	res->enviter = environ;
 
-	*pres = res;
-	return EV_OK;
+	return res;
 }
 ev_code_t ev_enviter_next(ev_enviter_t iter, const char **pres) {
 	char *pair = *iter->enviter;

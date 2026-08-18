@@ -1274,9 +1274,9 @@ ev_code_t ev_env_set(const char *name, const char *val) {
 	return EV_OK;
 }
 
-ev_code_t ev_enviter_new(ev_enviter_t *pres) {
+ev_enviter_t ev_enviter_new() {
 	ev_enviter_t res = malloc(sizeof *res);
-	if (!res) return EV_ENOMEM;
+	if (!res) return NULL;
 
 	res->data = res->curr = GetEnvironmentStringsW();
 	if (!res->data) {
@@ -1284,8 +1284,7 @@ ev_code_t ev_enviter_new(ev_enviter_t *pres) {
 		return evi_win_conv_errno(GetLastError());
 	}
 
-	*pres = res;
-	return EV_OK;
+	return res;
 }
 ev_code_t ev_enviter_next(ev_enviter_t iter, const char **pres) {
 	free(iter->lastalloc);
