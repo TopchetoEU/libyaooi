@@ -1,6 +1,6 @@
 **THIS IS A DEV BRANCH, EXCPECT STUFF TO BREAK!!!**
 
-libyaooi is a dead-simple alternative to libuv for performing platform-specific operations in a non-blocking and platform-independent way.
+libyaooi (Yet Another OS Operations Interface, you pervert) is a dead-simple alternative to libuv for performing platform-specific operations in a non-blocking and platform-independent way.
 
 ## Core architecture
 
