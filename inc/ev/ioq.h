@@ -44,6 +44,4 @@ ev_code_t evq_proc_wait(ev_req_t req, ev_proc_t proc, int *psig, int *pcode);
 
 ev_code_t evq_sig_wait(ev_req_t req, ev_signo_t *pres);
 
-void evq_sleep(ev_req_t req, ev_time_t deadline);
-
 #endif

@@ -23,17 +23,10 @@ void ev_queue_free(ev_queue_t queue);
 // - If `pdeadline` is before the current moment, returns immediatly.
 // A good way to non-blockingly poll is to pass ev_monotime() to `pdeadline`
 ev_code_t ev_queue_poll(ev_queue_t queue, const ev_time_t *pdeadline, ev_req_t *preq, ev_code_t *pcode);
-// Returns true if no more requests are present in the queue
-bool ev_queue_empty(ev_queue_t queue);
 
 // Inserts a new request in the queue and returns it
 ev_req_t ev_req_new(ev_queue_t queue);
 
-void ev_req_setudata(ev_req_t req, void *udata);
-void ev_req_getudata(ev_req_t req, void *udata);
-
-// Marks the request as complete
-void ev_req_done(ev_req_t req, ev_code_t code);
 // Executes the function in a thread pool returns its value via the request
 // The function must return EV_EINTR, if it has been interrupted. This is interpreted as a cancellation
 ev_code_t ev_req_exec(ev_req_t req, ev_worker_t worker, void *pargs);
