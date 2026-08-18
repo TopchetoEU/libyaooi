@@ -3,11 +3,11 @@
 #include <ctype.h>
 #include <string.h>
 
-#include <ev/addr.h> // IWYU pragma: export
+#include <yaioi/addr.h> // IWYU pragma: export
 
-static bool ev_parse_ipv4(const char *str, ev_addr_t *pres) {
-	ev_addr_t res;
-	res.type = EV_ADDR_IPV4;
+static bool yo_parse_ipv4(const char *str, yo_addr_t *pres) {
+	yo_addr_t res;
+	res.type = YO_ADDR_IPV4;
 
 	const char *it = str;
 
@@ -38,9 +38,9 @@ static bool ev_parse_ipv4(const char *str, ev_addr_t *pres) {
 	if (pres) *pres = res;
 	return true;
 }
-static bool ev_parse_ipv6(const char *str, ev_addr_t *pres) {
-	ev_addr_t res = { 0 };
-	res.type = EV_ADDR_IPV6;
+static bool yo_parse_ipv6(const char *str, yo_addr_t *pres) {
+	yo_addr_t res = { 0 };
+	res.type = YO_ADDR_IPV6;
 
 	const char *it = str;
 	int zeroes_i = -1;
@@ -94,14 +94,14 @@ static bool ev_parse_ipv6(const char *str, ev_addr_t *pres) {
 	return true;
 }
 
-bool ev_addrparse(const char *str, ev_addr_t *pres) {
-	if (ev_parse_ipv4(str, pres)) return true;
-	if (ev_parse_ipv6(str, pres)) return true;
+bool yo_addrparse(const char *str, yo_addr_t *pres) {
+	if (yo_parse_ipv4(str, pres)) return true;
+	if (yo_parse_ipv6(str, pres)) return true;
 	return false;
 }
-bool ev_addrcmp(ev_addr_t a, ev_addr_t b) {
+bool yo_addrcmp(yo_addr_t a, yo_addr_t b) {
 	if (a.type != b.type) return false;
-	if (a.type == EV_ADDR_IPV4) {
+	if (a.type == YO_ADDR_IPV4) {
 		return !memcmp(a.v4, b.v4, sizeof a.v4);
 	}
 	else {

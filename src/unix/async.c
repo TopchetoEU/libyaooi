@@ -1,13 +1,13 @@
 #pragma once
 
-#include <ev/conf.h>
+#include <yaioi/conf.h>
 
 #include "./async.h" // IWYU pragma: export
 
 // IWYU pragma: begin_exports
-#ifdef /* multiplex */ EV_USE_EPOLL
+#ifdef /* multiplex */ YO_USE_EPOLL
 	#include "./epoll.c"
-#elif defined EV_USE_UNIX
+#elif defined YO_USE_UNIX
 	#include "./poll.c"
 #endif
 // IWYU pragma: end_exports

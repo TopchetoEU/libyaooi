@@ -2,8 +2,8 @@
 
 #include <stdbool.h>
 
-#include <ev/errno.h>
-#include <ev/queue.h>
+#include <yaioi/errno.h>
+#include <yaioi/queue.h>
 
 #include "./pool.h" // IWYU pragma: export
 
@@ -12,60 +12,60 @@
 
 #include "./queue.c"
 
-#ifdef EV_USE_MULTITHREAD
-	static void _evi_pool_cancelcb(ev_req_t req) {
-		ev_thread_cancel(req->running.task.worker->thread);
+#ifdef YO_USE_MULTITHREAD
+	static void _yoi_pool_cancelcb(yo_req_t req) {
+		yo_thread_cancel(req->running.task.worker->thread);
 	}
 
-	static void evi_pool_worker_entry(void *pargs) {
-		evi_pool_worker_t worker = (evi_pool_worker_t)pargs;
+	static void yoi_pool_worker_entry(void *pargs) {
+		yoi_pool_worker_t worker = (yoi_pool_worker_t)pargs;
 
-		ev_mutex_lock(worker->lock);
+		yo_mutex_lock(worker->lock);
 
 		while (true) {
 			while (worker->worker && !worker->kys) {
-				ev_req_t req = worker->req;
-				ev_worker_t cb = worker->worker;
+				yo_req_t req = worker->req;
+				yo_worker_t cb = worker->worker;
 				void *args = worker->args;
 
-				ev_mutex_unlock(worker->lock);
+				yo_mutex_unlock(worker->lock);
 
-				evi_req_end(req, cb(args));
+				yoi_req_end(req, cb(args));
 
-				ev_mutex_lock(worker->lock);
+				yo_mutex_lock(worker->lock);
 				worker->worker = NULL;
 				worker->args = NULL;
 				worker->req = NULL;
 			}
 			if (worker->kys) break;
 
-			ev_cond_wait(worker->cond, worker->lock);
+			yo_cond_wait(worker->cond, worker->lock);
 		}
 
-		ev_mutex_unlock(worker->lock);
+		yo_mutex_unlock(worker->lock);
 	}
 
-	ev_code_t ev_req_exec(ev_req_t req, ev_worker_t worker, void *args) {
-		evi_pool_t pool = &req->queue->pool;
-		for (evi_pool_worker_t it = pool->worker_head; it; it = it->next) {
-			ev_mutex_lock(it->lock);
+	yo_code_t yo_req_exec(yo_req_t req, yo_worker_t worker, void *args) {
+		yoi_pool_t pool = &req->queue->pool;
+		for (yoi_pool_worker_t it = pool->worker_head; it; it = it->next) {
+			yo_mutex_lock(it->lock);
 			if (!it->worker && !it->kys) {
 				it->req = req;
 				it->worker = worker;
 				it->args = args;
-				ev_cond_broadcast(it->cond);
-				ev_mutex_unlock(it->lock);
+				yo_cond_broadcast(it->cond);
+				yo_mutex_unlock(it->lock);
 
 				goto begin;
 			}
-			ev_mutex_unlock(it->lock);
+			yo_mutex_unlock(it->lock);
 		}
 
-		evi_pool_worker_t pool_worker = malloc(sizeof *pool_worker);
-		if (!pool_worker) return EV_ENOMEM;
+		yoi_pool_worker_t pool_worker = malloc(sizeof *pool_worker);
+		if (!pool_worker) return YO_ENOMEM;
 
-		ev_cond_new(pool_worker->cond);
-		ev_mutex_new(pool_worker->lock);
+		yo_cond_new(pool_worker->cond);
+		yo_mutex_new(pool_worker->lock);
 
 		pool_worker->req = req;
 		pool_worker->kys = false;
@@ -74,53 +74,53 @@
 		pool_worker->args = args;
 		pool_worker->next = NULL;
 
-		if (ev_thread_new(pool_worker->thread, evi_pool_worker_entry, pool_worker) < 0) {
-			ev_cond_free(pool_worker->cond);
+		if (yo_thread_new(pool_worker->thread, yoi_pool_worker_entry, pool_worker) < 0) {
+			yo_cond_free(pool_worker->cond);
 			free(pool_worker);
-			return EV_EAGAIN;
+			return YO_EAGAIN;
 		}
 
-		evi_list_add(pool_worker, pool->worker_head, pool_worker);
+		yoi_list_add(pool_worker, pool->worker_head, pool_worker);
 
 	begin:
-		evi_req_begin(req, _evi_pool_cancelcb);
-		return EV_OK;
+		yoi_req_begin(req, _yoi_pool_cancelcb);
+		return YO_OK;
 	}
 
-	static void evi_pool_init(evi_pool_t pool) {
+	static void yoi_pool_init(yoi_pool_t pool) {
 		pool->worker_head = NULL;
 	}
-	static void evi_pool_free(evi_pool_t pool) {
+	static void yoi_pool_free(yoi_pool_t pool) {
 		while (pool->worker_head) {
-			evi_pool_worker_t curr = pool->worker_head;
+			yoi_pool_worker_t curr = pool->worker_head;
 			pool->worker_head = curr->next;
 
-			ev_mutex_lock(curr->lock);
+			yo_mutex_lock(curr->lock);
 			curr->kys = true;
-			ev_thread_cancel(curr->thread);
-			ev_cond_broadcast(curr->cond);
-			ev_mutex_unlock(curr->lock);
+			yo_thread_cancel(curr->thread);
+			yo_cond_broadcast(curr->cond);
+			yo_mutex_unlock(curr->lock);
 
-			ev_thread_free_join(curr->thread);
+			yo_thread_free_join(curr->thread);
 
-			ev_cond_free(curr->cond);
-			ev_mutex_free(curr->lock);
+			yo_cond_free(curr->cond);
+			yo_mutex_free(curr->lock);
 			free(curr);
 		}
 
 		pool->worker_head = NULL;
 	}
 #else
-	static ev_code_t evi_pool_exec(evi_pool_t pool, ev_req_t req, ev_worker_t worker, void *args) {
+	static yo_code_t yoi_pool_exec(yoi_pool_t pool, yo_req_t req, yo_worker_t worker, void *args) {
 		(void)pool;
-		evi_req_begin(req, evi_req_cancel_noop_cb);
-		evi_req_end(req, worker(args));
-		return EV_OK;
+		yoi_req_begin(req, yoi_req_cancel_noop_cb);
+		yoi_req_end(req, worker(args));
+		return YO_OK;
 	}
-	static void evi_pool_init(evi_pool_t pool) {
+	static void yoi_pool_init(yoi_pool_t pool) {
 		(void)pool;
 	}
-	static void evi_pool_free(evi_pool_t pool) {
+	static void yoi_pool_free(yoi_pool_t pool) {
 		(void)pool;
 	}
 #endif

@@ -4,224 +4,224 @@
 #include <stddef.h>
 #include <unistd.h>
 
-#include <ev/errno.h>
-#include <ev/queue.h>
-#include <ev/io.h>
-#include <ev/ioq.h>
+#include <yaioi/errno.h>
+#include <yaioi/queue.h>
+#include <yaioi/io.h>
+#include <yaioi/ioq.h>
 
 #include "./pollish.h" // IWYU pragma: export
 
 #include "../queue.c"
 #include "./impl.c"
 
-static evi_pl_evn_mask_t _evi_pl_tomask(evi_pl_kind_t kind) {
+static yoi_pl_evn_mask_t _yoi_pl_tomask(yoi_pl_kind_t kind) {
 	switch (kind) {
-		case EVI_PL_READ:
-		case EVI_PL_PREAD:
-		case EVI_PL_ACCEPT:
-			return EVI_PL_READABLE;
-		case EVI_PL_WRITE:
-		case EVI_PL_PWRITE:
-			return EVI_PL_WRITABLE;
+		case YOI_PL_READ:
+		case YOI_PL_PREAD:
+		case YOI_PL_ACCEPT:
+			return YOI_PL_READABLE;
+		case YOI_PL_WRITE:
+		case YOI_PL_PWRITE:
+			return YOI_PL_WRITABLE;
 		default: return 0;
 	}
 }
 
-static ev_code_t _evi_pl_req_stop(ev_req_t req);
+static yo_code_t _yoi_pl_req_stop(yo_req_t req);
 
-static void _evi_pl_req_cancel(ev_req_t req) {
-	_evi_pl_req_stop(req);
-	evi_req_end(req, EV_EINTR);
+static void _yoi_pl_req_cancel(yo_req_t req) {
+	_yoi_pl_req_stop(req);
+	yoi_req_end(req, YO_EINTR);
 }
-static ev_req_t _evi_pl_get_req(ev_fd_t fd, evi_pl_evn_mask_t ready) {
-	for (ev_req_t i = fd->head; i; i = i->running.ioq.next) {
-		if (_evi_pl_tomask(i->running.ioq.kind) & ready) return i;
+static yo_req_t _yoi_pl_get_req(yo_fd_t fd, yoi_pl_evn_mask_t ready) {
+	for (yo_req_t i = fd->head; i; i = i->running.ioq.next) {
+		if (_yoi_pl_tomask(i->running.ioq.kind) & ready) return i;
 	}
 
 	return NULL;
 }
-static ev_code_t _evi_pl_req_do(ev_req_t req) {
+static yo_code_t _yoi_pl_req_do(yo_req_t req) {
 	switch (req->running.ioq.kind) {
-		case EVI_PL_READ: return ev_read(req->running.ioq.fd, req->running.ioq.rw.buff, req->running.ioq.rw.pn);
-		case EVI_PL_WRITE: return ev_write(req->running.ioq.fd, req->running.ioq.rw.buff, req->running.ioq.rw.pn);
-		case EVI_PL_PREAD: return ev_file_read(req->running.ioq.fd, req->running.ioq.rw.buff, req->running.ioq.rw.pn, req->running.ioq.rw.ptr);
-		case EVI_PL_PWRITE: return ev_file_write(req->running.ioq.fd, req->running.ioq.rw.buff, req->running.ioq.rw.pn, req->running.ioq.rw.ptr);
-		case EVI_PL_ACCEPT: return ev_socket_accept(
+		case YOI_PL_READ: return yo_read(req->running.ioq.fd, req->running.ioq.rw.buff, req->running.ioq.rw.pn);
+		case YOI_PL_WRITE: return yo_write(req->running.ioq.fd, req->running.ioq.rw.buff, req->running.ioq.rw.pn);
+		case YOI_PL_PREAD: return yo_file_read(req->running.ioq.fd, req->running.ioq.rw.buff, req->running.ioq.rw.pn, req->running.ioq.rw.ptr);
+		case YOI_PL_PWRITE: return yo_file_write(req->running.ioq.fd, req->running.ioq.rw.buff, req->running.ioq.rw.pn, req->running.ioq.rw.ptr);
+		case YOI_PL_ACCEPT: return yo_socket_accept(
 			req->running.ioq.fd,
 			req->running.ioq.accept.pclient,
 			req->running.ioq.accept.paddr,
 			req->running.ioq.accept.pport
 		);
-		default: return EV_ENOTSUP;
+		default: return YO_ENOTSUP;
 	}
 }
-static ev_code_t _evi_pl_req_start(ev_req_t req) {
-	ev_fd_t fd = req->running.ioq.fd;
+static yo_code_t _yoi_pl_req_start(yo_req_t req) {
+	yo_fd_t fd = req->running.ioq.fd;
 
-	switch (_evi_pl_tomask(req->running.ioq.kind)) {
-		case EVI_PL_READABLE: fd->ioq.read_n++; break;
-		case EVI_PL_WRITABLE: fd->ioq.write_n++; break;
+	switch (_yoi_pl_tomask(req->running.ioq.kind)) {
+		case YOI_PL_READABLE: fd->ioq.read_n++; break;
+		case YOI_PL_WRITABLE: fd->ioq.write_n++; break;
 	}
 
-	evi_pl_evn_mask_t mask = 0;
-	if (fd->ioq.read_n) mask |= EVI_PL_READABLE;
-	if (fd->ioq.write_n) mask |= EVI_PL_WRITABLE;
+	yoi_pl_evn_mask_t mask = 0;
+	if (fd->ioq.read_n) mask |= YOI_PL_READABLE;
+	if (fd->ioq.write_n) mask |= YOI_PL_WRITABLE;
 
-	ev_code_t code = evi_pl_impl_setmask(req->queue, fd, fd->fd, mask);
-	evi_req_begin(req, _evi_pl_req_cancel);
+	yo_code_t code = yoi_pl_impl_setmask(req->queue, fd, fd->fd, mask);
+	yoi_req_begin(req, _yoi_pl_req_cancel);
 
-	evi_dlist_add(req_ioq, fd->head, req);
+	yoi_dlist_add(req_ioq, fd->head, req);
 
 	// The handle doesn't support epoll, it must go thru the sync route
-	if (code == EV_EPERM) {
-		evi_req_end(req, _evi_pl_req_do(req));
-		return EV_OK;
+	if (code == YO_EPERM) {
+		yoi_req_end(req, _yoi_pl_req_do(req));
+		return YO_OK;
 	}
 
 	return code;
 }
-static ev_code_t _evi_pl_req_stop(ev_req_t req) {
-	ev_fd_t fd = req->running.ioq.fd;
+static yo_code_t _yoi_pl_req_stop(yo_req_t req) {
+	yo_fd_t fd = req->running.ioq.fd;
 
-	switch (_evi_pl_tomask(req->running.ioq.kind)) {
-		case EVI_PL_READABLE: fd->ioq.read_n--; break;
-		case EVI_PL_WRITABLE: fd->ioq.write_n--; break;
+	switch (_yoi_pl_tomask(req->running.ioq.kind)) {
+		case YOI_PL_READABLE: fd->ioq.read_n--; break;
+		case YOI_PL_WRITABLE: fd->ioq.write_n--; break;
 	}
 
-	evi_pl_evn_mask_t mask = 0;
-	if (fd->ioq.read_n) mask |= EVI_PL_READABLE;
-	if (fd->ioq.write_n) mask |= EVI_PL_WRITABLE;
+	yoi_pl_evn_mask_t mask = 0;
+	if (fd->ioq.read_n) mask |= YOI_PL_READABLE;
+	if (fd->ioq.write_n) mask |= YOI_PL_WRITABLE;
 
-	evi_dlist_del(req_ioq, req);
+	yoi_dlist_del(req_ioq, req);
 
-	return evi_pl_impl_setmask(req->queue, fd, fd->fd, mask);
+	return yoi_pl_impl_setmask(req->queue, fd, fd->fd, mask);
 }
 
-static ev_code_t evi_pl_init(evi_pl_t pl, ev_queue_t queue) {
-	ev_code_t code;
+static yo_code_t yoi_pl_init(yoi_pl_t pl, yo_queue_t queue) {
+	yo_code_t code;
 
 	int msg_pipe[2];
-	if (pipe(msg_pipe) < 0) { code = evi_unix_conv_errno(errno); goto fail_pipe; }
-	if (fcntl(msg_pipe[0], F_SETFD, O_NONBLOCK) < 0) { code = evi_unix_conv_errno(errno); goto fail_fcntl; }
-	if (fcntl(msg_pipe[1], F_SETFD, O_NONBLOCK) < 0) { code = evi_unix_conv_errno(errno); goto fail_fcntl; }
+	if (pipe(msg_pipe) < 0) { code = yoi_unix_conv_errno(errno); goto fail_pipe; }
+	if (fcntl(msg_pipe[0], F_SETFD, O_NONBLOCK) < 0) { code = yoi_unix_conv_errno(errno); goto fail_fcntl; }
+	if (fcntl(msg_pipe[1], F_SETFD, O_NONBLOCK) < 0) { code = yoi_unix_conv_errno(errno); goto fail_fcntl; }
 
 	pl->notify_read = msg_pipe[0];
 	pl->notify_write = msg_pipe[1];
 
-	if ((code = evi_pl_impl_setmask(queue, NULL, pl->notify_read, EVI_PL_READABLE)) != EV_OK) goto fail_setmask;
+	if ((code = yoi_pl_impl_setmask(queue, NULL, pl->notify_read, YOI_PL_READABLE)) != YO_OK) goto fail_setmask;
 
-	return EV_OK;
+	return YO_OK;
 fail_setmask:
 fail_fcntl:
 	close(msg_pipe[0]);
 	close(msg_pipe[1]);
 fail_pipe:
-	return evi_unix_conv_errno(errno);
+	return yoi_unix_conv_errno(errno);
 }
-static ev_code_t evi_pl_free(evi_pl_t pl) {
+static yo_code_t yoi_pl_free(yoi_pl_t pl) {
 	close(pl->notify_read);
 	close(pl->notify_write);
-	return EV_OK;
+	return YO_OK;
 }
-static ev_code_t evi_queue_impl_notify(ev_queue_t queue) {
+static yo_code_t yoi_queue_impl_notify(yo_queue_t queue) {
 	if (write(queue->impl.pl.notify_write, &(uint8_t) { 0 }, sizeof(uint8_t)) < 0) {
-		if (errno != EWOULDBLOCK) return evi_unix_conv_errno(errno);
+		if (errno != EWOULDBLOCK) return yoi_unix_conv_errno(errno);
 	}
 
-	return EV_OK;
+	return YO_OK;
 }
 
-static void (evi_unix_onclose)(ev_fd_t fd) {
-	for (ev_req_t i = fd->head; i; i = i->running.ioq.next) {
+static void (yoi_unix_onclose)(yo_fd_t fd) {
+	for (yo_req_t i = fd->head; i; i = i->running.ioq.next) {
 		// We must iterate, as requests from multiple queues may be on the same fd
-		evi_pl_impl_setmask(i->queue, NULL, fd->fd, 0);
-		evi_req_end(i, EV_ECANCELED);
+		yoi_pl_impl_setmask(i->queue, NULL, fd->fd, 0);
+		yoi_req_end(i, YO_ECANCELED);
 	}
 }
 
-ev_code_t (ev_queue_poll)(ev_queue_t queue, const ev_time_t *deadline, ev_req_t *preq, ev_code_t *pcode) {
+yo_code_t (yo_queue_poll)(yo_queue_t queue, const yo_time_t *deadline, yo_req_t *preq, yo_code_t *pcode) {
 	while (true) {
-		ev_req_t queue_req = evi_queue_pop(queue, pcode);
+		yo_req_t queue_req = yoi_queue_pop(queue, pcode);
 		if (queue_req) {
 			*preq = queue_req;
-			return EV_OK;
+			return YO_OK;
 		}
 
 		void *udata;
-		evi_pl_evn_mask_t ready;
+		yoi_pl_evn_mask_t ready;
 
-		ev_code_t err = evi_pl_impl_poll(queue, deadline, &udata, &ready);
-		if (err != EV_OK) return err;
+		yo_code_t err = yoi_pl_impl_poll(queue, deadline, &udata, &ready);
+		if (err != YO_OK) return err;
 
-		ev_fd_t fd = (ev_fd_t)udata;
+		yo_fd_t fd = (yo_fd_t)udata;
 		if (!fd) continue;
 
-		ev_req_t req = _evi_pl_get_req(fd, ready);
+		yo_req_t req = _yoi_pl_get_req(fd, ready);
 		if (!req) continue;
 
-		_evi_pl_req_stop(req);
+		_yoi_pl_req_stop(req);
 
-		*pcode = _evi_pl_req_do(req);
+		*pcode = _yoi_pl_req_do(req);
 		*preq = req;
-		return EV_OK;
+		return YO_OK;
 	}
 }
 
-ev_code_t (evq_read)(ev_req_t req, ev_fd_t fd, char *buff, size_t *pn) {
-	if (!evi_unix_isfd(fd)) return EV_EBADF;
+yo_code_t (yoa_read)(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn) {
+	if (!yoi_unix_isfd(fd)) return YO_EBADF;
 
-	req->running.ioq.kind = EVI_PL_READ;
+	req->running.ioq.kind = YOI_PL_READ;
 	req->running.ioq.fd = fd;
 
 	req->running.ioq.rw.buff = buff;
 	req->running.ioq.rw.pn = pn;
 
-	return _evi_pl_req_start(req);
+	return _yoi_pl_req_start(req);
 }
-ev_code_t (evq_write)(ev_req_t req, ev_fd_t fd, char *buff, size_t *pn) {
-	if (!evi_unix_isfd(fd)) return EV_EBADF;
+yo_code_t (yoa_write)(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn) {
+	if (!yoi_unix_isfd(fd)) return YO_EBADF;
 
-	req->running.ioq.kind = EVI_PL_WRITE;
+	req->running.ioq.kind = YOI_PL_WRITE;
 	req->running.ioq.fd = fd;
 
 	req->running.ioq.rw.buff = buff;
 	req->running.ioq.rw.pn = pn;
 
-	return _evi_pl_req_start(req);
+	return _yoi_pl_req_start(req);
 }
-ev_code_t (evq_file_read)(ev_req_t req, ev_fd_t fd, char *buff, size_t *pn, size_t offset) {
-	if (!evi_unix_isfd(fd)) return EV_EBADF;
+yo_code_t (yoa_file_read)(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn, size_t offset) {
+	if (!yoi_unix_isfd(fd)) return YO_EBADF;
 
-	req->running.ioq.kind = EVI_PL_PREAD;
-	req->running.ioq.fd = fd;
-
-	req->running.ioq.rw.buff = buff;
-	req->running.ioq.rw.pn = pn;
-	req->running.ioq.rw.ptr = offset;
-
-	return _evi_pl_req_start(req);
-}
-ev_code_t (evq_file_write)(ev_req_t req, ev_fd_t fd, char *buff, size_t *pn, size_t offset) {
-	if (!evi_unix_isfd(fd)) return EV_EBADF;
-
-	req->running.ioq.kind = EVI_PL_PWRITE;
+	req->running.ioq.kind = YOI_PL_PREAD;
 	req->running.ioq.fd = fd;
 
 	req->running.ioq.rw.buff = buff;
 	req->running.ioq.rw.pn = pn;
 	req->running.ioq.rw.ptr = offset;
 
-	return _evi_pl_req_start(req);
+	return _yoi_pl_req_start(req);
 }
-ev_code_t (evq_socket_accept)(ev_req_t req, ev_fd_t server, ev_fd_t *pclient, ev_addr_t *paddr, uint16_t *pport) {
-	if (!evi_unix_isfd(server)) return EV_EBADF;
+yo_code_t (yoa_file_write)(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn, size_t offset) {
+	if (!yoi_unix_isfd(fd)) return YO_EBADF;
 
-	req->running.ioq.kind = EVI_PL_ACCEPT;
+	req->running.ioq.kind = YOI_PL_PWRITE;
+	req->running.ioq.fd = fd;
+
+	req->running.ioq.rw.buff = buff;
+	req->running.ioq.rw.pn = pn;
+	req->running.ioq.rw.ptr = offset;
+
+	return _yoi_pl_req_start(req);
+}
+yo_code_t (yoa_socket_accept)(yo_req_t req, yo_fd_t server, yo_fd_t *pclient, yo_addr_t *paddr, uint16_t *pport) {
+	if (!yoi_unix_isfd(server)) return YO_EBADF;
+
+	req->running.ioq.kind = YOI_PL_ACCEPT;
 	req->running.ioq.fd = server;
 
 	req->running.ioq.accept.pclient = pclient;
 	req->running.ioq.accept.paddr = paddr;
 	req->running.ioq.accept.pport = pport;
 
-	return _evi_pl_req_start(req);
+	return _yoi_pl_req_start(req);
 }

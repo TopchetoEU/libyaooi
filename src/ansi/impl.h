@@ -2,36 +2,36 @@
 
 #include <stdio.h>
 
-#include <ev/io.h>
+#include <yaioi/io.h>
 
 #include "../fallback/queue.h" // IWYU pragma: export
 
-static void evi_ansi_mkfd(ev_fd_t res, FILE *f);
-static bool evi_ansi_mkat(ev_fd_t res, const char *path);
+static void yoi_ansi_mkfd(yo_fd_t res, FILE *f);
+static bool yoi_ansi_mkat(yo_fd_t res, const char *path);
 
-static int evi_ansi_isfd(ev_fd_t fd);
+static int yoi_ansi_isfd(yo_fd_t fd);
 
-static ev_code_t evi_ansi_conv_errno(int err, ev_code_t fallback);
+static yo_code_t yoi_ansi_conv_errno(int err, yo_code_t fallback);
 
-struct ev_fd {
+struct yo_fd {
 	bool owned;
 
 	enum {
-		EVI_ANSI_FILE,
-		EVI_ANSI_AT,
+		YOI_ANSI_FILE,
+		YOI_ANSI_AT,
 	} kind;
 	union {
 		FILE *file;
 		char *at;
 	};
 };
-struct ev_dir {
+struct yo_dir {
 };
-struct ev_proc {
+struct yo_proc {
 };
-struct ev_enviter {
+struct yo_enviter {
 	char **enviter;
 };
 
 typedef struct {
-} evi_req_ioq_t;
+} yoi_req_ioq_t;

@@ -1,11 +1,11 @@
-#ifndef EV_ERRNO_H
-#define EV_ERRNO_H
+#ifndef YO_ERRNO_H
+#define YO_ERRNO_H
 
-#include <ev/conf.h>
+#include <yaioi/conf.h>
 
 // These have more or less been ripped from libuv
 
-#define EV_SIGDEF(X) \
+#define YO_SIGDEF(X) \
 	X(OK, 0, "no error occurred") \
 	X(EPERM, -1, "operation not permitted") \
 	X(ENOENT, -2, "no such file or directory") \
@@ -100,12 +100,12 @@
 	X(EUNKNOWN, -3000, "unknown OS-specific error") \
 
 typedef enum {
-	#define EV_SIGDEF_ENUM_X(name, code, msg) EV_##name = code,
-	EV_SIGDEF(EV_SIGDEF_ENUM_X)
-	#undef EV_SIGDEF_ENUM_X
-} ev_code_t;
+	#define YO_SIGDEF_ENUM_X(name, code, msg) YO_##name = code,
+	YO_SIGDEF(YO_SIGDEF_ENUM_X)
+	#undef YO_SIGDEF_ENUM_X
+} yo_code_t;
 
 // Converts the error code to a human-readable string
-const char *ev_strerr(ev_code_t code);
+const char *yo_strerr(yo_code_t code);
 
 #endif

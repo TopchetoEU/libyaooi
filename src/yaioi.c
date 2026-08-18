@@ -6,8 +6,8 @@
 
 #include <stdint.h>
 
-#include <ev/conf.h>
-#include <ev/errno.h>
+#include <yaioi/conf.h>
+#include <yaioi/errno.h>
 
 // Source files included here for a unity build
 
@@ -17,11 +17,11 @@
 #include "./impl.c" // IWYU pragma: export
 #include "./fallback/async.c" // IWYU pragma: export
 
-const char *ev_strerr(ev_code_t code) {
+const char *yo_strerr(yo_code_t code) {
 	switch (code) {
-		#define EV_SIGDEF_SWITCH_X(name, code, msg) case code: return msg;
-		EV_SIGDEF(EV_SIGDEF_SWITCH_X)
-		#undef EV_SIGDEF_SWITCH_X
+		#define YO_SIGDEF_SWITCH_X(name, code, msg) case code: return msg;
+		YO_SIGDEF(YO_SIGDEF_SWITCH_X)
+		#undef YO_SIGDEF_SWITCH_X
 		default: return "unknown OS-specific error";
 	}
 }

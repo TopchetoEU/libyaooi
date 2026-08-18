@@ -14,7 +14,7 @@ ifeq ($(TARGET),Windows)
 	LIBPREFIX := bin/Windows/
 endif
 
-NAME ?= ev
+NAME ?= yaioi
 
 SHARED := $(LIBPREFIX)$(NAME)
 STATIC := $(LIBPREFIX)$(NAME).a
@@ -47,7 +47,7 @@ $(SHARED): $(OBJECT) | bin/$(TARGET)/
 $(STATIC): $(OBJECT) | bin/$(TARGET)/
 	$(TARGET_AR) rcs $@ $^
 
-$(OBJECT): src/ev.c | bin/$(TARGET)/
+$(OBJECT): src/yaioi.c | bin/$(TARGET)/
 	$(TARGET_CC) $(CFLAGS) -c $< -o $(OBJECT) -MMD
 
 %/:
