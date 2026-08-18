@@ -38,47 +38,55 @@ An example luajit FFI wrapper has been included, so that you can get an idea of 
 
 ```
 list<coroutine> tasks = [];
-ev_loop_t loop = ev_init();
+map<ev_req_t, coroutine> reqs = {};
+ev_queue_t queue = ev_queue_new();
 
-func sync_call(function ev_func, ev_t loop, ...) {
-	ev_ticket_t ticket = ev_func(loop, coro_running(), ...);
-	return coro_yield();
+func sync_call(function ev_func, ev_t queue, ...) {
+	ev_req_t req = ev_req_new(queue);
+	ev_func(req, coro_running(), ...);
+	reqs[req] = current_thread;
+	return yield();
 }
 
 func run_loop() {
 	while (true) {
 		while (tasks.length > 0) {
 			coroutine task = tasks.remove(0);
-			coro_resume(task);
+			resume(task);
 		}
 
 		// Exit out when all operations are complete
-		if (!ev_busy(loop)) break;
+		if (reqs.length == 0 && tasks.length == 0) break;
 
-		void *udata;
+		ev_req_t req;
 		int err;
-		if (!ev_poll(loop, true, NULL, &udata, &err)) break;
+		if (!ev_queue_poll(queue, NULL, &req, &err)) break;
 
-		coro_resume((coroutine)udata, err);
+		resume(reqs[req], err);
 	}
 }
 
-tasks += coroutine {
-	ev_fd_t stdout = ev_stdout(loop);
-	ev_fd_t f;
-	sync_call(ev_open, loop, &f, "myfile.txt", EV_OPEN_READ);
+func main() {
+	tasks.add(coroutine {
+		ev_fd_t stdout;
+		ev_tty_out(&stdout);
+		ev_fd_t f;
+		sync_call(ev_open, queue, &f, "myfile.txt", ev_OPEN_READ);
 
-	size_t i = 0;
-	while (true) {
-		size_t n = 1024;
-		char buff[1024];
+		size_t i = 0;
+		while (true) {
+			size_t n = 1024;
+			char buff[1024];
 
-		sync_call(ev_read, loop, f, &n, buff, i);
-		if (n == 0) break;
+			sync_call(ev_read, queue, f, &n, buff, i);
+			if (n == 0) break;
 
-		i += n;
-		sync_call(ev_write, loop, stdout, &n, buff, i);
-	}
-};
+			i += n;
+			sync_call(ev_write, queue, stdout, &n, buff, i);
+		}
+	});
+
+	run_loop();
+}
 
 ```
