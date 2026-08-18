@@ -629,6 +629,85 @@ ev_code_t ev_stat(ev_fd_t fd, ev_stat_t *buff) {
 	return EV_OK;
 }
 
+ev_code_t ev_tty_in(ev_fd_t *pres) {
+	return ev_fd_new(pres, (uint64_t)(size_t)GetStdHandle(STD_INPUT_HANDLE), false);
+}
+ev_code_t ev_tty_out(ev_fd_t *pres) {
+	return ev_fd_new(pres, (uint64_t)(size_t)GetStdHandle(STD_OUTPUT_HANDLE), false);
+}
+ev_code_t ev_tty_err(ev_fd_t *pres) {
+	return ev_fd_new(pres, (uint64_t)(size_t)GetStdHandle(STD_ERROR_HANDLE), false);
+}
+ev_code_t ev_tty_raw(ev_fd_t tty, ev_tty_raw_t *pres) {
+	(void)tty, (void)pres;
+	// Not yet...
+	return EV_ENOTSUP;
+}
+ev_code_t ev_tty_rawend(ev_tty_raw_t rawmode) {
+	(void)rawmode;
+	return EV_ENOTSUP;
+}
+
+ev_code_t ev_file_remove(const char *path) {
+	wchar_t *wpath = evi_win_conv_utf8(path, 0);
+	if (!wpath) return evi_win_conv_errno(GetLastError());
+
+	if (!DeleteFileW(wpath)) {
+		if (GetLastError() != ERROR_ACCESS_DENIED) {
+			free(wpath);
+			return evi_win_conv_errno(GetLastError());
+		}
+	}
+	if (!RemoveDirectoryW(wpath)) {
+		free(wpath);
+		return evi_win_conv_errno(GetLastError());
+	}
+
+	free(wpath);
+	return EV_OK;
+}
+ev_code_t ev_file_symlink(const char *path, const char *target) {
+	wchar_t *wpath = evi_win_conv_utf8(path, 0);
+	if (!wpath) return evi_win_conv_errno(GetLastError());
+
+	wchar_t *wtarget = evi_win_conv_utf8(target, 0);
+	if (!wpath) {
+		free(wpath);
+		return evi_win_conv_errno(GetLastError());
+	}
+
+	// TODO: handle directories
+	bool res = CreateSymbolicLinkW(wtarget, wpath, 0);
+	free(wpath);
+	free(wtarget);
+
+	if (!res) return evi_win_conv_errno(GetLastError());
+	return EV_OK;
+}
+ev_code_t ev_file_hardlink(const char *path, const char *target) {
+	wchar_t *wpath = evi_win_conv_utf8(path, 0);
+	if (!wpath) return evi_win_conv_errno(GetLastError());
+
+	wchar_t *wtarget = evi_win_conv_utf8(target, 0);
+	if (!wpath) {
+		free(wpath);
+		return evi_win_conv_errno(GetLastError());
+	}
+
+	// TODO: handle directories
+	bool res = CreateHardLinkW(wtarget, wpath, 0);
+	free(wpath);
+	free(wtarget);
+
+	if (!res) return evi_win_conv_errno(GetLastError());
+	return EV_OK;
+}
+ev_code_t ev_file_readlink(const char *path, char **pres) {
+	(void)path, (void)pres;
+	// Tough luck
+	return EV_ENOTSUP;
+}
+
 ev_code_t ev_file_open(ev_fd_t *pres, const char *path, ev_open_flags_t flags, int mode) {
 	(void)mode;
 
@@ -734,66 +813,6 @@ ev_code_t ev_file_chmod(ev_fd_t fd, int mode) {
 }
 ev_code_t ev_file_chown(ev_fd_t fd, int uid, int gid) {
 	(void)fd, (void)uid, (void)gid;
-	return EV_OK;
-}
-
-ev_code_t ev_file_symlink(const char *path, const char *target) {
-	wchar_t *wpath = evi_win_conv_utf8(path, 0);
-	if (!wpath) return evi_win_conv_errno(GetLastError());
-
-	wchar_t *wtarget = evi_win_conv_utf8(target, 0);
-	if (!wpath) {
-		free(wpath);
-		return evi_win_conv_errno(GetLastError());
-	}
-
-	// TODO: handle directories
-	bool res = CreateSymbolicLinkW(wtarget, wpath, 0);
-	free(wpath);
-	free(wtarget);
-
-	if (!res) return evi_win_conv_errno(GetLastError());
-	return EV_OK;
-}
-ev_code_t ev_file_hardlink(const char *path, const char *target) {
-	wchar_t *wpath = evi_win_conv_utf8(path, 0);
-	if (!wpath) return evi_win_conv_errno(GetLastError());
-
-	wchar_t *wtarget = evi_win_conv_utf8(target, 0);
-	if (!wpath) {
-		free(wpath);
-		return evi_win_conv_errno(GetLastError());
-	}
-
-	// TODO: handle directories
-	bool res = CreateHardLinkW(wtarget, wpath, 0);
-	free(wpath);
-	free(wtarget);
-
-	if (!res) return evi_win_conv_errno(GetLastError());
-	return EV_OK;
-}
-ev_code_t ev_file_readlink(const char *path, char **pres) {
-	(void)path, (void)pres;
-	// Tough luck
-	return EV_ENOTSUP;
-}
-ev_code_t ev_file_remove(const char *path) {
-	wchar_t *wpath = evi_win_conv_utf8(path, 0);
-	if (!wpath) return evi_win_conv_errno(GetLastError());
-
-	if (!DeleteFileW(wpath)) {
-		if (GetLastError() != ERROR_ACCESS_DENIED) {
-			free(wpath);
-			return evi_win_conv_errno(GetLastError());
-		}
-	}
-	if (!RemoveDirectoryW(wpath)) {
-		free(wpath);
-		return evi_win_conv_errno(GetLastError());
-	}
-
-	free(wpath);
 	return EV_OK;
 }
 
@@ -943,6 +962,78 @@ ev_code_t ev_socket_connect(ev_fd_t *pres, ev_proto_t proto, ev_addr_t addr, uin
 	return EV_OK;
 }
 
+ev_code_t ev_dns_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_flags_t flags) {
+	ADDRINFOW hints = { 0 };
+
+	if (flags & EV_AI_IPV4_MAPPED) hints.ai_flags |= EV_AI_IPV4_MAPPED;
+
+	if (flags & EV_AI_IPV6) hints.ai_family = AF_INET6;
+	else if (flags & EV_AI_IPV4) hints.ai_family = AF_INET;
+	else hints.ai_family = AF_UNSPEC;
+
+	if (flags & EV_AI_BIND) hints.ai_flags |= AI_PASSIVE;
+	if (flags & EV_AI_NODNS) hints.ai_flags |= AI_NUMERICHOST;
+
+	ADDRINFOW *list = NULL;
+
+	wchar_t *wname = evi_win_conv_utf8(name, 0);
+	if (!wname) return evi_win_conv_errno(GetLastError());
+
+	int code;
+
+	// We still want to resolve a valid loopback IP, even if getaddrinfo
+	if (name == NULL) code = GetAddrInfoW(wname, L"80", &hints, &list);
+	else code = GetAddrInfoW(wname, L"", &hints, &list);
+
+	free(wname);
+
+	switch (code) {
+		case 0: break;
+		case EAI_NODATA: break;
+		case EAI_NONAME: break;
+		case EAI_SOCKTYPE: return EV_EINVAL;
+		case EAI_BADFLAGS: return EV_EINVAL;
+		case EAI_FAMILY: return EV_ENOTSUP;
+		case EAI_MEMORY: return EV_ENOMEM;
+		case EAI_AGAIN: return EV_EAGAIN;
+		case EAI_FAIL: return EV_EIO;
+	}
+
+	size_t n = 0;
+	for (ADDRINFOW *it = list; it; it = it->ai_next) n++;
+
+	ev_addrinfo_t res = malloc(sizeof *res + sizeof *res->addr * n);
+	if (!res) return EV_ENOMEM;
+
+	size_t i = 0;
+	for (ADDRINFOW *it = list; it; it = it->ai_next) {
+		uint16_t port;
+		ev_addr_t addr;
+		evi_win_conv_sockaddr((void*)it->ai_addr, &addr, &port);
+
+		bool found = false;
+
+		for (size_t j = 0; j < i; j++) {
+			if (!memcmp(&addr, &res->addr[j], sizeof addr)) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			res->addr[i] = addr;
+			i++;
+		}
+	}
+
+	res->n = i;
+
+	if (list) FreeAddrInfoW(list);
+
+	*pres = res;
+	return EV_OK;
+}
+
 ev_code_t ev_proc_spawn(
 	ev_proc_t *pres, ev_spawn_flags_t flags,
 	const char **argv, const char **envp, const char *cwd,
@@ -1057,76 +1148,9 @@ ev_code_t ev_proc_wait(ev_proc_t proc, int *psig, int *pcode) {
 
 	return EV_OK;
 }
-
-ev_code_t ev_dns_getaddrinfo(ev_addrinfo_t *pres, const char *name, ev_addrinfo_flags_t flags) {
-	ADDRINFOW hints = { 0 };
-
-	if (flags & EV_AI_IPV4_MAPPED) hints.ai_flags |= EV_AI_IPV4_MAPPED;
-
-	if (flags & EV_AI_IPV6) hints.ai_family = AF_INET6;
-	else if (flags & EV_AI_IPV4) hints.ai_family = AF_INET;
-	else hints.ai_family = AF_UNSPEC;
-
-	if (flags & EV_AI_BIND) hints.ai_flags |= AI_PASSIVE;
-	if (flags & EV_AI_NODNS) hints.ai_flags |= AI_NUMERICHOST;
-
-	ADDRINFOW *list = NULL;
-
-	wchar_t *wname = evi_win_conv_utf8(name, 0);
-	if (!wname) return evi_win_conv_errno(GetLastError());
-
-	int code;
-
-	// We still want to resolve a valid loopback IP, even if getaddrinfo
-	if (name == NULL) code = GetAddrInfoW(wname, L"80", &hints, &list);
-	else code = GetAddrInfoW(wname, L"", &hints, &list);
-
-	free(wname);
-
-	switch (code) {
-		case 0: break;
-		case EAI_NODATA: break;
-		case EAI_NONAME: break;
-		case EAI_SOCKTYPE: return EV_EINVAL;
-		case EAI_BADFLAGS: return EV_EINVAL;
-		case EAI_FAMILY: return EV_ENOTSUP;
-		case EAI_MEMORY: return EV_ENOMEM;
-		case EAI_AGAIN: return EV_EAGAIN;
-		case EAI_FAIL: return EV_EIO;
-	}
-
-	size_t n = 0;
-	for (ADDRINFOW *it = list; it; it = it->ai_next) n++;
-
-	ev_addrinfo_t res = malloc(sizeof *res + sizeof *res->addr * n);
-	if (!res) return EV_ENOMEM;
-
-	size_t i = 0;
-	for (ADDRINFOW *it = list; it; it = it->ai_next) {
-		uint16_t port;
-		ev_addr_t addr;
-		evi_win_conv_sockaddr((void*)it->ai_addr, &addr, &port);
-
-		bool found = false;
-
-		for (size_t j = 0; j < i; j++) {
-			if (!memcmp(&addr, &res->addr[j], sizeof addr)) {
-				found = true;
-				break;
-			}
-		}
-
-		if (!found) {
-			res->addr[i] = addr;
-			i++;
-		}
-	}
-
-	res->n = i;
-
-	if (list) FreeAddrInfoW(list);
-
-	*pres = res;
+ev_code_t ev_proc_disown(ev_proc_t proc) {
+	CloseHandle(proc->hnd);
+	free(proc);
 	return EV_OK;
 }
 
@@ -1200,7 +1224,7 @@ ev_code_t ev_getpath(ev_path_type_t type, char **pres) {
 	return EV_EINVAL;
 }
 
-ev_code_t ev_getenv(const char *name, char **pres) {
+ev_code_t ev_env_get(const char *name, char **pres) {
 	wchar_t *wname = evi_win_conv_utf8(name, 0);
 	if (!wname) return evi_win_conv_errno(GetLastError());
 
@@ -1233,7 +1257,7 @@ ev_code_t ev_getenv(const char *name, char **pres) {
 	if (!*pres) return evi_win_conv_errno(GetLastError());
 	return EV_OK;
 }
-ev_code_t ev_setenv(const char *name, const char *val) {
+ev_code_t ev_env_set(const char *name, const char *val) {
 	wchar_t *wname = evi_win_conv_utf8(name, 0);
 	if (!wname) return evi_win_conv_errno(GetLastError());
 
