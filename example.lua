@@ -308,7 +308,7 @@ ev_code_t ev_env_set(const char *name, const char *val);
 
 typedef struct ev_enviter *ev_enviter_t;
 // Initializes an iterator of the env variables
-ev_code_t ev_enviter_new(ev_enviter_t *pres);
+ev_enviter_t ev_enviter_new();
 // Gets the next env variable from the iterator
 ev_code_t ev_enviter_next(ev_enviter_t iter, const char **pres);
 void ev_enviter_close(ev_enviter_t iter);
@@ -352,632 +352,613 @@ ev_code_t evq_proc_wait(ev_req_t req, ev_proc_t proc, int *psig, int *pcode);
 ev_code_t evq_sig_wait(ev_req_t req, ev_signo_t *pres);
 ]];
 
-local buffer = require "string.buffer";
+-- local curr_tag = 0;
+local reqs = {};
+local tasks = {};
+local sleeps = {};
 
-local file = ffi.new "ev_fd_t[1]";
-local pn = ffi.new "size_t[1]";
-local offset = 0;
-local buff = buffer.new(4096);
+local queue = libev.ev_queue_new();
 
-libev.ev_file_open(file, "dump.lua", libev.EV_OPEN_READ, 0);
-while true do
-	local ptr, n = buff:reserve(4096);
-	pn[0] = n;
-	libev.ev_file_read(file[0], ptr, pn, offset);
+local ev = {};
 
-	if pn[0] == 0 then break end
-	offset = offset + pn[0];
+local function qcall(func, cb, ...)
+	local req = libev.ev_req_new(queue);
 
-	buff:commit(pn[0]);
+	local code = func(req, ...);
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
+
+	reqs[tonumber(ffi.cast("size_t", req))] = cb;
+	return true;
 end
 
-libev.ev_fd_close(file[0]);
-
-print(buff);
-
--- local curr_tag = 0;
--- local tasks = {};
--- local handles = {};
--- local sleeps = {};
-
--- local loop = libev.ev_init();
-
--- local ev = {};
-
--- local function call_wrap(func, cb, ...)
--- 	curr_tag = curr_tag + 1;
--- 	local tag = curr_tag;
--- 	local code = func(loop, ffi.cast("void*", tag), ...);
--- 	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
--- 	handles[tag] = cb;
--- 	return true;
--- end
-
--- local function parse_ip(str)
--- 	local pres = ffi.new "ev_addr_t[1]";
-
--- 	if not libev.ev_parse_ip(str, pres) then
--- 		error "invalid IP";
--- 	end
-
--- 	return pres[0];
--- end
-
--- local function pinvoke(handle, ...)
--- 	if type(handle) == "thread" then
--- 		return coroutine.resume(handle, ...);
--- 	elseif type(handle) == "function" then
--- 		return pcall(handle, ...);
--- 	elseif handle == nil then
--- 		return true, "invalid handle";
--- 	else
--- 		return false, "invalid handle";
--- 	end
--- end
--- local function invoke(handle, ...)
--- 	local ok, err = pinvoke(handle, ...);
--- 	if not ok then return error(err, 0) end
--- end
-
--- function ev.realtime()
--- 	local pres = ffi.new "ev_time_t[1]";
--- 	assert(libev.evs_realtime(pres) == 0, "couldn't get realtime");
--- 	return assert(tonumber(pres[0].sec)) + assert(tonumber(pres[0].nsec)) / 1000000000;
--- end
--- function ev.monotime()
--- 	local pres = ffi.new "ev_time_t[1]";
--- 	assert(libev.evs_monotime(pres) == 0, "couldn't get realtime");
--- 	return assert(tonumber(pres[0].sec)) + assert(tonumber(pres[0].nsec)) / 1000000000;
--- end
-
--- function ev.rawread(cb, sock, n, ptr)
--- 	local pn = ffi.new("size_t[1]", n);
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
--- 		return invoke(cb, pn[0], ptr);
--- 	end
-
--- 	return call_wrap(libev.ev_read, handle, sock, ptr, pn);
--- end
--- function ev.rawwrite(cb, sock, n, ptr)
--- 	local pn = ffi.new("size_t[1]", n);
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
--- 		return invoke(cb, pn[0], ptr);
--- 	end
-
--- 	return call_wrap(libev.ev_write, handle, sock, ptr, pn);
--- end
--- function ev.read(cb, sock, n)
--- 	local buff = ffi.new("char[?]", n);
-
--- 	return ev.rawread(function (n, ptr)
--- 		if not n then return invoke(cb, n, ptr) end
--- 		return invoke(cb, ffi.string(ptr, n));
--- 	end, sock, n, buff);
--- end
--- function ev.write(cb, sock, str)
--- 	local buff = ffi.new("char[?]", #str);
--- 	ffi.copy(buff, str, #str);
-
--- 	return ev.rawwrite(function (n, ptr)
--- 		if not n then return invoke(cb, n, ptr) end
--- 		return invoke(cb, n);
--- 	end, sock, #str, buff);
--- end
--- ev.close = libev.evs_close;
-
--- function ev.file_open(cb, path, flags, mode)
--- 	local pres = ffi.new "ev_handle_t[1]";
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
--- 		return invoke(cb, pres[0]);
--- 	end
-
--- 	return call_wrap(libev.ev_file_open, handle, pres, path, flags, assert(tonumber(mode, 8)));
--- end
--- function ev.file_rawread(cb, fd, offset, n, ptr)
--- 	local pn = ffi.new("size_t[1]", n);
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
--- 		return invoke(cb, pn[0], ptr);
--- 	end
-
--- 	return call_wrap(libev.ev_file_read, handle, fd, ptr, pn, offset);
--- end
--- function ev.file_rawwrite(cb, fd, offset, n, ptr)
--- 	local pn = ffi.new("size_t[1]", n);
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
--- 		return invoke(cb, pn[0], ptr);
--- 	end
-
--- 	return call_wrap(libev.ev_file_write, handle, fd, ptr, pn, offset);
--- end
--- function ev.file_read(cb, fd, offset, n)
--- 	local buff = ffi.new("char[?]", n);
-
--- 	return ev.file_rawread(function (n, ptr)
--- 		if not n then return invoke(cb, n, ptr) end
--- 		return invoke(cb, ffi.string(ptr, n));
--- 	end, fd, offset, n, buff);
--- end
--- function ev.file_write(cb, fd, offset, str)
--- 	local buff = ffi.new("char[?]", #str);
--- 	ffi.copy(buff, str, #str);
-
--- 	return ev.file_rawwrite(function (n, ptr)
--- 		if not n then return invoke(cb, n, ptr) end
--- 		return invoke(cb, n);
--- 	end, fd, offset, #str, buff);
--- end
--- function ev.stat(cb, fd)
--- 	local pbuff = ffi.new "ev_stat_t[1]";
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
--- 		return invoke(cb, pbuff[0]);
--- 	end
-
--- 	return call_wrap(libev.ev_stat, handle, fd, pbuff);
--- end
-
--- function ev.proc_spawn(cb, opts)
--- 	local pres = ffi.new "ev_proc_t[1]";
-
--- 	local function fix_stdfd(fd)
--- 		if fd == "inherit" then
--- 			return 0, nil;
--- 		elseif fd == "pipe" then
--- 			return 1, ffi.new "ev_handle_t[1]";
--- 		end
--- 	end
-
--- 	local in_flags, pin = fix_stdfd(opts.stdin);
--- 	local out_flags, pout = fix_stdfd(opts.stdout);
--- 	local err_flags, perr = fix_stdfd(opts.stderr);
-
--- 	local function strdup(str)
--- 		local res = libc.malloc(#str + 1);
--- 		ffi.copy(res, str);
--- 		return res;
--- 	end
-
--- 	local argv = ffi.cast("const char**", libc.malloc(ffi.sizeof "const char*" * (#opts.argv + 1)));
--- 	for i = 1, #opts.argv do
--- 		argv[i - 1] = strdup(opts.argv[i]);
--- 	end
--- 	argv[#opts.argv] = nil;
-
--- 	local env_key_n = 0;
-
--- 	for _ in pairs(opts.env) do
--- 		env_key_n = env_key_n + 1;
--- 	end
-
--- 	local env = ffi.cast("const char**", libc.malloc(ffi.sizeof "const char**" * (#opts.env + env_key_n + 1)));
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
-
--- 		local stdin, stdout, stderr;
-
--- 		if in_flags == 1 and pin then stdin = pin[0] end
--- 		if out_flags == 1 and pout then stdout = pout[0] end
--- 		if err_flags == 1 and perr then stderr = perr[0] end
-
--- 		return invoke(cb, pres[0], stdin, stdout, stderr);
--- 	end
-
--- 	for i = 1, #opts.env do
--- 		env[i - 1] = strdup(opts.env[i][1] .. "=" .. opts.env[i][2]);
--- 	end
-
--- 	local i = 0;
--- 	for k, v in pairs(opts.env) do
--- 		env[#opts.env + i] = strdup(k .. v);
--- 		i = i + 1;
--- 	end
-
--- 	env[#opts.env + env_key_n] = nil;
-
--- 	return call_wrap(libev.ev_proc_spawn, handle, pres, argv, env, opts.cwd, in_flags, pin, out_flags, pout, err_flags, perr);
--- end
--- function ev.proc_wait(cb, proc)
--- 	local pcode = ffi.new "int[1]";
--- 	local psig = ffi.new "int[1]";
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
--- 		return invoke(cb, tonumber(pcode[0]), tonumber(psig[0]));
--- 	end
-
--- 	return call_wrap(libev.ev_proc_wait, handle, proc, pcode, psig);
--- end
-
--- function ev.dir_new(cb, path, mode)
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
--- 		return invoke(cb, true);
--- 	end
-
--- 	return call_wrap(libev.ev_dir_new, handle, path, assert(tonumber(mode or 777, 8)));
--- end
--- function ev.dir_open(cb, path)
--- 	local pres = ffi.new "ev_dir_t[1]";
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
--- 		return invoke(cb, pres[0]);
--- 	end
-
--- 	return call_wrap(libev.ev_dir_open, handle, pres, path);
--- end
--- function ev.dir_next(cb, dir)
--- 	local pname = ffi.new "char*[1]";
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
--- 		return invoke(cb, pname[0]);
--- 	end
-
--- 	return call_wrap(libev.ev_dir_next, handle, dir, pname);
--- end
--- ev.dir_close = libev.evs_dir_close;
-
--- function ev.socket_connect(cb, addr, port, type)
--- 	local itype;
--- 	local pres = ffi.new "ev_handle_t[1]";
-
--- 	if type == "tcp" then
--- 		itype = 0;
--- 	elseif type == "udp" then
--- 		itype = 1;
--- 	else
--- 		error "invalid type";
--- 	end
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
--- 		return invoke(cb, pres[0]);
--- 	end
-
--- 	return call_wrap(libev.ev_socket_connect, handle, pres, itype, parse_ip(addr), port);
--- end
--- function ev.server_bind(cb, addr, port, type)
--- 	local itype;
--- 	local pres = ffi.new "ev_server_t[1]";
-
--- 	if type == "tcp" then
--- 		itype = 0;
--- 	elseif type == "udp" then
--- 		itype = 1;
--- 	else
--- 		error "invalid type";
--- 	end
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
--- 		return invoke(cb, pres[0]);
--- 	end
-
--- 	return call_wrap(libev.ev_server_bind, handle, pres, parse_ip(addr), port, itype);
--- end
--- function ev.server_accept(cb, server)
--- 	local pres = ffi.new "ev_handle_t[1]";
--- 	local paddr = ffi.new "ev_addr_t[1]";
--- 	local pport = ffi.new "uint16_t[1]";
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
--- 		return invoke(cb, pres[0], paddr[0], pport[0]);
--- 	end
-
--- 	return call_wrap(libev.ev_server_accept, handle, pres, paddr, pport, server);
--- end
--- ev.server_close = libev.evs_server_close;
-
--- function ev.getaddrinfo(cb, name, flags)
--- 	local pres = ffi.new "ev_addrinfo_t[1]";
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
-
--- 		local res = {};
-
--- 		for i = 1, tonumber(pres[0].n) do
--- 			local addr = pres[0].addr[i - 1];
-
--- 			if addr.type == 0 then
--- 				table.insert(res, ("%d.%d.%d.%d"):format(addr.v4[0], addr.v4[1], addr.v4[2], addr.v4[3]));
--- 			else
--- 				table.insert(res, ("%x:%x:%x:%x:%x:%x:%x:%x"):format(
--- 					addr.v6[0], addr.v6[1],
--- 					addr.v6[2], addr.v6[3],
--- 					addr.v6[4], addr.v6[5],
--- 					addr.v6[6], addr.v6[7]
--- 				));
--- 			end
--- 		end
-
--- 		return invoke(cb, res);
--- 	end
-
--- 	return call_wrap(libev.ev_getaddrinfo, handle, pres, name, flags);
--- end
-
--- function ev.sig_on(signo)
--- 	local code = libev.ev_sig_on(loop, signo);
--- 	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
--- end
--- function ev.sig_off(signo)
--- 	local code = libev.ev_sig_off(loop, signo);
--- 	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
--- end
--- function ev.sig_wait(cb)
--- 	local pres = ffi.new "ev_signo_t[1]";
-
--- 	local function handle(code)
--- 		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
--- 		return invoke(cb, tonumber(pres[0]));
--- 	end
-
--- 	return call_wrap(libev.ev_sig_wait, handle, pres);
--- end
-
--- function ev.getpath(type)
--- 	local pres = ffi.new "char*[1]";
--- 	local code = libev.evs_getpath(pres, type);
-
--- 	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
-
--- 	local res = ffi.string(pres[0]);
--- 	libc.free(pres[0]);
--- 	return res;
--- end
--- function ev.getenv(name)
--- 	local pres = ffi.new "char*[1]";
--- 	local code = libev.evs_getenv(name, pres);
-
--- 	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
-
--- 	local res = ffi.string(pres[0]);
--- 	libc.free(pres[0]);
--- 	return res;
--- end
--- function ev.setenv(name, val)
--- 	local code = libev.evs_setenv(name, val);
--- 	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
--- 	return true;
--- end
--- function ev.nextenv(pit, ...)
--- 	local pres = ffi.new "const char *[1]";
-
--- 	local code = libev.evs_nextenv(pit, pres);
--- 	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
-
--- 	if pres[0] == ffi.cast("void*", 0) then
--- 		return nil;
--- 	else
--- 		return ffi.string(pres[0]), pit;
--- 	end
--- end
--- function ev.iterenv()
--- 	return ev.nextenv, ffi.new "void *[1]";
--- end
-
--- local function syncify(func)
--- 	return function (...)
--- 		local ok, err = func(coroutine.running(), ...);
--- 		if not ok then return nil, err end
--- 		return coroutine.yield();
--- 	end
--- end
-
--- local evs = {
--- 	read = syncify(ev.read),
--- 	write = syncify(ev.write),
--- 	close = ev.close,
-
--- 	file_open = syncify(ev.file_open),
--- 	file_rawread = syncify(ev.file_rawread),
--- 	file_rawwrite = syncify(ev.file_rawwrite),
--- 	file_read = syncify(ev.file_read),
--- 	file_write = syncify(ev.file_write),
--- 	stat = syncify(ev.stat),
-
--- 	dir_new = syncify(ev.dir_new),
--- 	dir_open = syncify(ev.dir_open),
--- 	dir_read = syncify(ev.dir_next),
--- 	dir_close = ev.dir_close,
-
--- 	socket_connect = syncify(ev.socket_connect),
--- 	server_bind = syncify(ev.server_bind),
--- 	server_accept = syncify(ev.server_accept),
--- 	server_close = ev.server_close,
-
--- 	sig_on = ev.sig_on,
--- 	sig_off = ev.sig_off,
--- 	sig_wait = syncify(ev.sig_wait),
-
--- 	proc_spawn = syncify(ev.proc_spawn),
--- 	proc_wait = syncify(ev.proc_wait),
-
--- 	getaddrinfo = syncify(ev.getaddrinfo),
--- 	getpath = ev.getpath,
--- 	getenv = ev.getenv,
--- 	setenv = ev.setenv,
--- };
-
--- local function run()
--- 	while true do
--- 		local curr = ev.monotime();
-
--- 		-- NOTE: this can be implemented as a sorted list, which would be MUCH faster for lots of concurrent sleeps, this is just the simplest logic
--- 		for i = #sleeps, 1, -1 do
--- 			if sleeps[i].time <= curr then
--- 				table.insert(tasks, sleeps[i].task);
--- 				table.remove(sleeps, i);
--- 			end
--- 		end
-
--- 		while true do
--- 			local task = table.remove(tasks, 1);
--- 			if not task then break end
-
--- 			local ok, err = pinvoke(task);
--- 			if not ok then return nil, err end
--- 		end
-
--- 		local timeout;
--- 		for i = #sleeps, 1, -1 do
--- 			if not timeout or timeout > sleeps[i].time then
--- 				timeout = sleeps[i].time;
--- 			end
--- 		end
-
--- 		if not timeout and not libev.ev_busy(loop) then return true end
-
--- 		local ptimeout = nil;
--- 		if timeout then
--- 			ptimeout = ffi.new "ev_time_t[1]";
--- 			ptimeout[0].sec = timeout - timeout % 1;
--- 			ptimeout[0].nsec = (timeout % 1) * 1000000000;
--- 		end
-
--- 		local pudata = ffi.new "void*[1]";
--- 		local perr = ffi.new "int[1]";
--- 		if libev.ev_poll(loop, ptimeout, pudata, perr) then
--- 			local ticket = assert(tonumber(ffi.cast("size_t", pudata[0])), "invalid ticket");
--- 			local handle = handles[ticket];
--- 			handles[ticket] = nil;
-
--- 			local ok, err = pinvoke(handle, perr[0]);
--- 			if not ok then return nil, err end
--- 		end
--- 	end
--- end
-
--- local function sleep_until(time)
--- 	local cb = coroutine.running();
--- 	table.insert(sleeps, { time = time, task = cb });
-
--- 	return coroutine.yield();
--- end
--- local function sleep(secs)
--- 	return sleep_until(secs + ev.monotime());
--- end
-
--- --- @param func fun(...)
--- local function fork(func, ...)
--- 	local thread = coroutine.create(function (...)
--- 		local ok, err = xpcall(func, debug.traceback, ...);
--- 		if not ok then error(err, 0) end
--- 	end);
-
--- 	local ok, err = coroutine.resume(thread, ...);
--- 	if not ok then error(err, 0) end
--- end
-
--- local function interrupt()
--- 	table.insert(tasks, (coroutine.running()));
--- 	return coroutine.yield();
--- end
-
--- local function open_tcp(name, port)
--- 	local err;
--- 	for _, data in ipairs(assert(evs.getaddrinfo(name, 0))) do
--- 		local res;
--- 		res, err = evs.socket_connect(data, port, "tcp");
--- 		if res then return res end
--- 	end
-
--- 	return nil, err or "host unreachable";
--- end
-
--- local stderr = libev.ev_stderr(loop);
-
--- local function netcat(url)
--- 	local sock = assert(open_tcp(url, 80));
-
--- 	assert(evs.write(sock, "GET / HTTP/1.1\r\nHost: " .. url .. "\r\nUser-Agent: example/0.1\r\nConnection: close\r\n\r\n"));
--- 	while true do
--- 		local res = assert(evs.read(sock, 100));
--- 		if #res == 0 then break end
-
--- 		-- io.stderr:write(res);
--- 		assert(evs.write(stderr, res));
--- 	end
--- 	evs.close(sock);
--- end
-
--- fork(function ()
--- 	evs.sig_on(0);
-
--- 	while true do
--- 		local sig = evs.sig_wait();
--- 		print("SIGNAL", sig);
--- 		if sig == 0 then
--- 			error "exit";
--- 		end
--- 	end
--- end);
+local function parse_ip(str)
+	local pres = ffi.new "ev_addr_t[1]";
+	assert(libev.ev_addrparse(str, pres), "invalid IP");
+	return pres[0];
+end
+
+local function pinvoke(handle, ...)
+	if type(handle) == "thread" then
+		return coroutine.resume(handle, ...);
+	elseif type(handle) == "function" then
+		return pcall(handle, ...);
+	elseif handle == nil then
+		return true, "invalid handle";
+	else
+		return false, "invalid handle";
+	end
+end
+local function invoke(handle, ...)
+	if type(handle) == "function" then
+		return handle(...);
+	end
+
+	local ok, err = pinvoke(handle, ...);
+	if not ok then return error(err, 0) end
+end
+
+--- @param kind "real" | "mono" | "cpu"
+function ev.time(kind)
+	local res;
+	if kind == "real" then
+		res = libev.ev_time(libev.EV_CLOCK_REALTIME);
+	elseif kind == "mono" then
+		res = libev.ev_time(libev.EV_CLOCK_MONOTIME);
+	elseif kind == "cpu" then
+		res = libev.ev_time(libev.EV_CLOCK_CPUTIME);
+	else
+		error "invalid clock type";
+	end
+
+	return tonumber(res.sec) + tonumber(res.nsec) / 1000000000;
+end
+
+function ev.rawread(cb, fd, ptr, n)
+	local pn = ffi.new("size_t[1]", n);
+
+	local function handle(code)
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+		return invoke(cb, tonumber(pn[0]));
+	end
+
+	return qcall(libev.evq_read, handle, fd, ptr, pn);
+end
+function ev.rawwrite(cb, fd, ptr, n)
+	local pn = ffi.new("size_t[1]", n);
+
+	local function handle(code)
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+		return invoke(cb, tonumber(pn[0]));
+	end
+
+	return qcall(libev.evq_write, handle, fd, ptr, pn);
+end
+function ev.read(cb, sock, n)
+	local buff = ffi.new("char[?]", n);
+
+	return ev.rawread(function (n, err)
+		if not n then return invoke(cb, n, err) end
+		return invoke(cb, ffi.string(buff, n));
+	end, sock, buff, n);
+end
+function ev.write(cb, sock, str)
+	local buff = ffi.new("char[?]", #str);
+	ffi.copy(buff, str, #str);
+
+	return ev.rawwrite(function (n, err)
+		if not n then return invoke(cb, n, err) end
+		return invoke(cb, n);
+	end, sock, buff, #str);
+end
+function ev.sync(cb, fd)
+	local function handle(code)
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+		return invoke(cb, true);
+	end
+
+	return qcall(libev.evq_stat, handle, fd);
+end
+function ev.stat(cb, fd)
+	local pbuff = ffi.new "ev_stat_t[1]";
+
+	local function handle(code)
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+		return invoke(cb, pbuff[0]);
+	end
+
+	return qcall(libev.evq_stat, handle, fd, pbuff);
+end
+ev.close = libev.ev_fd_close;
+
+function ev.file_open(cb, path, flags, mode)
+	local pres = ffi.new "ev_fd_t[1]";
+
+	local code = libev.ev_file_open(pres, path, flags, assert(tonumber(mode, 8)));
+	if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+
+	return pres[0];
+end
+function ev.file_rawread(cb, fd, offset, ptr, n)
+	local pn = ffi.new("size_t[1]", n);
+
+	local function handle(code)
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+		return invoke(cb, pn[0]);
+	end
+
+	return qcall(libev.evq_file_read, handle, fd, ptr, pn, offset);
+end
+function ev.file_rawwrite(cb, fd, offset, ptr, n)
+	local pn = ffi.new("size_t[1]", n);
+
+	local function handle(code)
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+		return invoke(cb, pn[0]);
+	end
+
+	return qcall(libev.evq_file_write, handle, fd, ptr, pn, offset);
+end
+function ev.file_read(cb, fd, offset, n)
+	local buff = ffi.new("char[?]", n);
+
+	return ev.file_rawread(function (n, err)
+		if not n then return invoke(cb, n, err) end
+		return invoke(cb, ffi.string(buff, n));
+	end, fd, offset, buff, n);
+end
+function ev.file_write(cb, fd, offset, str)
+	local buff = ffi.new("char[?]", #str);
+	ffi.copy(buff, str, #str);
+
+	return ev.file_rawwrite(function (n, err)
+		if not n then return invoke(cb, n, err) end
+		return invoke(cb, n);
+	end, fd, offset, buff, #str);
+end
+
+function ev.dir_new(cb, path, mode)
+	local function handle(code)
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+		return invoke(cb, true);
+	end
+
+	return qcall(libev.evq_dir_new, handle, path, assert(tonumber(mode or 777, 8)));
+end
+function ev.dir_open(cb, path)
+	local pres = ffi.new "ev_dir_t[1]";
+
+	local function handle(code)
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+		return invoke(cb, pres[0]);
+	end
+
+	return qcall(libev.evq_dir_open, handle, pres, path);
+end
+function ev.dir_next(cb, dir)
+	local pname = ffi.new "char*[1]";
+
+	local function handle(code)
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+		return invoke(cb, pname[0]);
+	end
+
+	return qcall(libev.evq_dir_next, handle, dir, pname);
+end
+ev.dir_close = libev.ev_dir_close;
+
+function ev.proc_spawn(opts)
+	local pres = ffi.new "ev_proc_t[1]";
+
+	local pin = opts.stdin and ffi.new "ev_fd_t[1]" or nil;
+	local pout = opts.stdout and ffi.new "ev_fd_t[1]" or nil;
+	local perr = opts.stderr and ffi.new "ev_fd_t[1]" or nil;
+
+	local function strdup(str)
+		local res = libc.malloc(#str + 1);
+		ffi.copy(res, str);
+		return res;
+	end
+
+	local argv = ffi.cast("const char**", libc.malloc(ffi.sizeof "const char*" * (#opts.argv + 1)));
+	for i = 1, #opts.argv do
+		argv[i - 1] = strdup(opts.argv[i]);
+	end
+	argv[#opts.argv] = nil;
+
+	local env_key_n = 0;
+
+	for _ in pairs(opts.env) do
+		env_key_n = env_key_n + 1;
+	end
+
+	local env = ffi.cast("const char**", libc.malloc(ffi.sizeof "const char**" * (#opts.env + env_key_n + 1)));
+
+	for i = 1, #opts.env do
+		env[i - 1] = strdup(opts.env[i][1] .. "=" .. opts.env[i][2]);
+	end
+
+	local i = 0;
+	for k, v in pairs(opts.env) do
+		env[#opts.env + i] = strdup(k .. v);
+		i = i + 1;
+	end
+
+	env[#opts.env + env_key_n] = nil;
+
+	local code = libev.ev_proc_spawn(pres, 0, argv, env, opts.cwd, pin, pout, perr);
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
+	return pres[0], pin and pin[0], pout and pout[0], perr and perr[0];
+end
+function ev.proc_wait(cb, proc)
+	local pcode = ffi.new "int[1]";
+	local psig = ffi.new "int[1]";
+
+	local function handle(code)
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+		return invoke(cb, tonumber(pcode[0]), tonumber(psig[0]));
+	end
+
+	return qcall(libev.evq_proc_wait, handle, proc, pcode, psig);
+end
+ev.proc_disown = libev.ev_proc_disown;
+
+function ev.socket_connect(cb, addr, port, type)
+	local itype;
+	local pres = ffi.new "ev_fd_t[1]";
+
+	if type == "tcp" then
+		itype = 0;
+	elseif type == "udp" then
+		itype = 1;
+	else
+		error "invalid type";
+	end
+
+	local function handle(code)
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+		return invoke(cb, pres[0]);
+	end
+
+	return qcall(libev.evq_socket_connect, handle, pres, itype, parse_ip(addr), port);
+end
+function ev.socket_accept(cb, server)
+	local pres = ffi.new "ev_fd_t[1]";
+	local paddr = ffi.new "ev_addr_t[1]";
+	local pport = ffi.new "uint16_t[1]";
+
+	local function handle(code)
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+		return invoke(cb, pres[0], paddr[0], pport[0]);
+	end
+
+	return qcall(libev.evq_socket_accept, handle, server, pres, paddr, pport);
+end
+function ev.socket_bind(addr, port, type, max_n)
+	local itype;
+	local pres = ffi.new "ev_fd_t[1]";
+
+	if type == "tcp" then
+		itype = 0;
+	elseif type == "udp" then
+		itype = 1;
+	else
+		error "invalid type";
+	end
+
+	local code = libev.ev_socket_bind(pres, parse_ip(addr), itype, port, max_n);
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
+
+	return pres[0];
+end
+
+function ev.dns_getaddrinfo(cb, name, flags)
+	local pres = ffi.new "ev_addrinfo_t[1]";
+
+	local function handle(code)
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+
+		local res = {};
+
+		for i = 1, tonumber(pres[0].n) do
+			local addr = pres[0].addr[i - 1];
+
+			if addr.type == 0 then
+				table.insert(res, ("%d.%d.%d.%d"):format(addr.v4[0], addr.v4[1], addr.v4[2], addr.v4[3]));
+			else
+				table.insert(res, ("%x:%x:%x:%x:%x:%x:%x:%x"):format(
+					addr.v6[0], addr.v6[1],
+					addr.v6[2], addr.v6[3],
+					addr.v6[4], addr.v6[5],
+					addr.v6[6], addr.v6[7]
+				));
+			end
+		end
+
+		return invoke(cb, res);
+	end
+
+	return qcall(libev.evq_dns_getaddrinfo, handle, pres, name, flags);
+end
+
+function ev.sig_on(signo)
+	local code = libev.ev_sig_on(signo);
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
+end
+function ev.sig_off(signo)
+	local code = libev.ev_sig_off(signo);
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
+end
+function ev.sig_wait(cb)
+	local pres = ffi.new "ev_signo_t[1]";
+
+	local function handle(code)
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libev.ev_strerr(code)), code) end
+		return invoke(cb, tonumber(pres[0]));
+	end
+
+	return qcall(libev.evq_sig_wait, handle, pres);
+end
+
+function ev.getpath(type)
+	local pres = ffi.new "char*[1]";
+	local code = libev.ev_getpath(pres, type);
+
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
+
+	local res = ffi.string(pres[0]);
+	libc.free(pres[0]);
+	return res;
+end
+function ev.env_get(name)
+	local pres = ffi.new "char*[1]";
+	local code = libev.ev_env_get(name, pres);
+
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
+
+	local res = ffi.string(pres[0]);
+	libc.free(pres[0]);
+	return res;
+end
+function ev.env_set(name, val)
+	local code = libev.ev_env_set(name, val);
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
+	return true;
+end
+
+ev.enviter_new = libev.ev_enviter_new;
+ev.enviter_close = libev.ev_enviter_close;
+function ev.enviter_next(iter)
+	local pres = ffi.new "const char *[1]";
+	local code = libev.ev_enviter_next(iter, pres);
+	if code ~= 0 then return nil, ffi.string(libev.ev_strerr(code)), code end
+
+	if pres[0] == ffi.cast("void*", 0) then
+		return nil;
+	else
+		return ffi.string(pres[0]);
+	end
+end
+
+local function syncify(func)
+	return function (...)
+		local ok, err = func(coroutine.running(), ...);
+		if not ok then return nil, err end
+		return coroutine.yield();
+	end
+end
+
+local evs = {
+	rawread = syncify(ev.rawread),
+	rawwrite = syncify(ev.rawwrite),
+	read = syncify(ev.read),
+	write = syncify(ev.write),
+	sync = syncify(ev.sync),
+	stat = syncify(ev.stat),
+	close = ev.close,
+
+	file_open = syncify(ev.file_open),
+	file_rawread = syncify(ev.file_rawread),
+	file_rawwrite = syncify(ev.file_rawwrite),
+	file_read = syncify(ev.file_read),
+	file_write = syncify(ev.file_write),
+
+	dir_new = syncify(ev.dir_new),
+	dir_open = syncify(ev.dir_open),
+	dir_read = syncify(ev.dir_next),
+	dir_close = ev.dir_close,
+
+	socket_connect = syncify(ev.socket_connect),
+	socket_accept = syncify(ev.socket_accept),
+	socket_bind = ev.socket_bind,
+
+	sig_on = ev.sig_on,
+	sig_off = ev.sig_off,
+	sig_wait = syncify(ev.sig_wait),
+
+	proc_spawn = ev.proc_spawn,
+	proc_wait = syncify(ev.proc_wait),
+
+	dns_getaddrinfo = syncify(ev.dns_getaddrinfo),
+	getpath = ev.getpath,
+
+	env_get = ev.env_get,
+	env_set = ev.env_set,
+};
+
+local function run()
+	while true do
+		local curr = ev.time "mono";
+
+		-- NOTE: this can be implemented as a sorted list, which would be MUCH faster for lots of concurrent sleeps, this is just the simplest logic
+		for i = #sleeps, 1, -1 do
+			if sleeps[i].time <= curr then
+				table.insert(tasks, sleeps[i].task);
+				table.remove(sleeps, i);
+			end
+		end
+
+		while true do
+			local task = table.remove(tasks, 1);
+			if not task then break end
+
+			local ok, err = pinvoke(task);
+			if not ok then return nil, err end
+		end
+
+		local timeout;
+		for i = #sleeps, 1, -1 do
+			if not timeout or timeout > sleeps[i].time then
+				timeout = sleeps[i].time;
+			end
+		end
+
+		if
+			not timeout and
+			not next(reqs) and
+			#tasks == 0
+		then return true end
+
+		local pdeadline = nil;
+		if timeout then
+			pdeadline = ffi.new "ev_time_t[1]";
+			pdeadline[0].sec = timeout - timeout % 1;
+			pdeadline[0].nsec = (timeout % 1) * 1000000000;
+		end
+
+		local preq = ffi.new "ev_req_t[1]";
+		local perr = ffi.new "int[1]";
+
+		local code = libev.ev_queue_poll(queue, pdeadline, preq, perr);
+		if code == 0 then
+			local ireq = assert(tonumber(ffi.cast("size_t", preq[0])));
+			local cb = reqs[ireq];
+			reqs[ireq] = nil;
+
+			libev.ev_req_free(preq[0]);
+
+			local ok, err = pinvoke(cb, perr[0]);
+			if not ok then return nil, err end
+		elseif code ~= -110 --[[ ETIMEDOUT ]] then
+			error(code);
+		end
+	end
+end
+
+local function sleep_until(time)
+	local cb = coroutine.running();
+	table.insert(sleeps, { time = time, task = cb });
+
+	return coroutine.yield();
+end
+local function sleep(secs)
+	return sleep_until(secs + ev.monotime());
+end
+
+--- @param func fun(...)
+local function fork(func, ...)
+	local thread = coroutine.create(function (...)
+		local ok, err = xpcall(func, debug.traceback, ...);
+		if not ok then error(err, 0) end
+	end);
+
+	local ok, err = coroutine.resume(thread, ...);
+	if not ok then error(err, 0) end
+end
+
+local function interrupt()
+	table.insert(tasks, (coroutine.running()));
+	return coroutine.yield();
+end
+
+local function open_tcp(name, port)
+	local err;
+	for _, data in ipairs(assert(evs.dns_getaddrinfo(name, 0))) do
+		local res;
+		res, err = evs.socket_connect(data, port, "tcp");
+		if res then return res end
+	end
+
+	return nil, err or "host unreachable";
+end
+
+local pstderr = ffi.new "ev_fd_t[1]";
+libev.ev_tty_err(pstderr);
+local stderr = pstderr[0];
+
+local function netcat(url)
+	local sock = assert(open_tcp(url, 80));
+
+	assert(evs.write(sock, "GET / HTTP/1.1\r\nHost: " .. url .. "\r\nUser-Agent: example/0.1\r\nConnection: close\r\n\r\n"));
+	while true do
+		local res = assert(evs.read(sock, 100));
+		if #res == 0 then break end
+
+		-- io.stderr:write(res);
+		assert(evs.write(stderr, res));
+	end
+	evs.close(sock);
+end
+
+fork(function ()
+	evs.sig_on(0);
+
+	while true do
+		print "WAIT";
+		local sig = evs.sig_wait();
+		print("SIGNAL", sig);
+		if sig == 0 then
+			error "exit";
+		end
+	end
+end);
 
 -- fork(netcat, "www.topcheto.eu");
--- fork(netcat, "www.example.org");
+fork(netcat, "www.example.org");
+fork(netcat, "www.example.com");
 
+fork(function ()
+	local base = ev.time "mono";
 
--- fork(function ()
--- 	local base = ev.monotime();
+	for i = 1, 50 do
+		sleep_until(base + i * .01);
+		print("====================> MS " .. i * 10);
+	end
+end);
 
--- 	for i = 1, 50 do
--- 		sleep_until(base + i * .01);
--- 		print("====================> MS " .. i * 10);
--- 	end
--- end);
+fork(function ()
+	local proc, proc_in, proc_out = assert(evs.proc_spawn {
+		stdin = true,
+		stdout = true,
+		argv = ffi.os == "Windows" and { "./cat.exe", "-" } or { "/bin/sort" },
+		env = {},
+	});
 
--- fork(function ()
--- 	local proc, proc_in, proc_out = assert(evs.proc_spawn {
--- 		stdin = "pipe",
--- 		-- stdin = "inherit",
--- 		stdout = "pipe",
--- 		-- stdout = "inherit",
--- 		stderr = "inherit",
--- 		argv = ffi.os == "Windows" and { "./cat.exe", "-" } or { "/bin/sort" },
--- 		env = {},
--- 	});
+	fork(function ()
+		assert(evs.write(proc_in, "The quick brown fox jumped over the red dog\n"));
+		assert(evs.write(proc_in, "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n"));
+		assert(evs.write(proc_in, "Integer consectetur mi a feugiat tempor.\n"));
+		assert(evs.write(proc_in, "Cras tincidunt diam at libero lacinia, ac fringilla metus malesuada.\n"));
+		evs.close(proc_in);
+	end);
 
--- 	fork(function ()
--- 		assert(evs.write(proc_in, "The quick brown fox jumped over the red dog\n"));
--- 		assert(evs.write(proc_in, "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n"));
--- 		assert(evs.write(proc_in, "Integer consectetur mi a feugiat tempor.\n"));
--- 		assert(evs.write(proc_in, "Cras tincidunt diam at libero lacinia, ac fringilla metus malesuada.\n"));
--- 		evs.close(proc_in);
--- 	end);
+	fork(function ()
+		while true do
+			local buff = assert(evs.read(proc_out, 1024));
+			if #buff == 0 then break end
+			io.stderr:write(buff);
+		end
+		evs.close(proc_out);
 
--- 	fork(function ()
--- 		while true do
--- 			local buff = assert(evs.read(proc_out, 1024));
--- 			if #buff == 0 then break end
--- 			io.stderr:write(buff);
--- 		end
--- 		evs.close(proc_out);
+		print("EXIT CODE", assert(evs.proc_wait(proc)));
+	end);
+end);
 
--- 		print("EXIT CODE", assert(evs.proc_wait(proc)));
--- 	end);
--- end);
+fork(function ()
+	for pair in ev.enviter_next, ev.enviter_new() do
+		print(pair:match "(.-)=(.*)");
+		interrupt();
+	end
+end);
 
--- -- fork(function ()
--- -- 	for pair in ev.iterenv() do
--- -- 		print(pair:match "(.-)=(.*)");
--- -- 		interrupt();
--- -- 	end
--- -- end);
-
--- assert(run());
--- libev.ev_free(loop);
+assert(run());
+libev.ev_queue_free(queue);
