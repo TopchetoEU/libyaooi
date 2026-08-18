@@ -160,7 +160,6 @@ ev_code_t (ev_queue_poll)(ev_queue_t queue, const ev_time_t *deadline, ev_req_t 
 		if (!req) continue;
 
 		_evi_pl_req_stop(req);
-		evi_req_kill(req);
 
 		*pcode = _evi_pl_req_do(req);
 		*preq = req;

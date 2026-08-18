@@ -16,85 +16,18 @@
 #include "./impl.c"
 #include "./pool.c"
 
-static bool evi_queue_trykill(ev_queue_t queue) {
-	if (!queue->dead) goto fail;
-	if (queue->running) goto fail;
-
-	while (queue->ready) {
-		queue->ready->state = EVI_REQ_DEAD;
-	}
-
-	ev_mutex_unlock(queue->lock);
-	ev_mutex_free(queue->lock);
-
-	free(queue);
-
-	return true;
-
-fail:
-	ev_mutex_unlock(queue->lock);
-	return false;
-}
-static bool evi_req_begin(ev_req_t req, void (*cancel)(ev_req_t req)) {
-	ev_mutex_lock(req->queue->lock);
-
-	if (req->state != EVI_REQ_BORN) {
-		ev_mutex_unlock(req->queue->lock);
-		return false;
-	}
-
-	req->state = EVI_REQ_RUNNING;
+static void evi_req_begin(ev_req_t req, void (*cancel)(ev_req_t req)) {
 	req->running.cancel = cancel;
 	req->running.cancelled = false;
-	evi_dlist_add(req_queue, req->queue->running, req);
-
-	ev_mutex_unlock(req->queue->lock);
-	return true;
 }
-static bool evi_req_end(ev_req_t req, ev_code_t code) {
+static void evi_req_end(ev_req_t req, ev_code_t code) {
+	req->ready.code = code;
+
+	// TODO: do with CAS
 	ev_mutex_lock(req->queue->lock);
-
-	if (req->state != EVI_REQ_RUNNING) {
-		ev_mutex_unlock(req->queue->lock);
-		return false;
-	}
-
-	evi_dlist_del(req_queue, req);
-
-
-	if (req->queue->dead) {
-		req->state = EVI_REQ_DEAD;
-		if (evi_queue_trykill(req->queue)) return true;
-	}
-	else {
-		req->state = EVI_REQ_READY;
-		req->ready.code = code;
-		evi_list_add(req_ready, req->queue->ready, req);
-	}
-
+	evi_list_add(req_ready, req->queue->head, req);
 	evi_queue_impl_notify(req->queue);
-
 	ev_mutex_unlock(req->queue->lock);
-	return true;
-}
-static bool evi_req_kill(ev_req_t req) {
-	ev_mutex_lock(req->queue->lock);
-
-	if (req->state != EVI_REQ_RUNNING) {
-		ev_mutex_unlock(req->queue->lock);
-		return false;
-	}
-
-	evi_dlist_del(req_queue, req);
-	req->state = EVI_REQ_DEAD;
-
-	if (req->queue->dead) {
-		if (!evi_queue_trykill(req->queue)) {
-			ev_mutex_unlock(req->queue->lock);
-		}
-	}
-
-	return true;
 }
 
 static void evi_req_cancel_noop_cb(ev_req_t req) {
@@ -104,18 +37,15 @@ static void evi_req_cancel_noop_cb(ev_req_t req) {
 static ev_req_t evi_queue_pop(ev_queue_t queue, ev_code_t *pcode) {
 	ev_mutex_lock(queue->lock);
 
-	ev_req_t req = queue->ready;
+	ev_req_t req = queue->head;
 	if (!req) {
 		ev_mutex_unlock(queue->lock);
 		return NULL;
 	}
 
-	req->state = EVI_REQ_DEAD;
-	evi_list_del(req_ready, queue->ready);
+	evi_list_del(req_ready, queue->head);
 
-	if (!evi_queue_trykill(queue)) {
-		ev_mutex_unlock(queue->lock);
-	}
+	ev_mutex_unlock(queue->lock);
 
 	*pcode = req->ready.code;
 	return req;
@@ -128,9 +58,7 @@ ev_queue_t ev_queue_new() {
 	ev_code_t err = evi_queue_impl_init(queue);
 	if (err != EV_OK) return NULL;
 
-	queue->ready = NULL;
-	queue->running = NULL;
-	queue->dead = false;
+	queue->head = NULL;
 
 	evi_pool_init(&queue->pool);
 	ev_mutex_new(queue->lock);
@@ -142,42 +70,30 @@ void ev_queue_free(ev_queue_t queue) {
 
 	evi_pool_free(&queue->pool);
 
-	if (queue->dead) {
-		ev_mutex_unlock(queue->lock);
-		return;
-	}
-
-	for (ev_req_t i = queue->running; i; i = i->running.next) {
-		ev_req_cancel(i);
-	}
-
 	ev_code_t err = evi_queue_impl_free(queue);
 	if (err != EV_OK) {
 		ev_mutex_unlock(queue->lock);
 		return;
 	}
 
-	evi_queue_trykill(queue);
+	ev_mutex_free(queue->lock);
+
+	free(queue);
 }
 
-void ev_req_cancel(ev_req_t req) {
-	ev_mutex_lock(req->queue->lock);
+ev_req_t ev_req_new(ev_queue_t queue) {
+	ev_req_t res = malloc(sizeof *res);
+	if (!res) return NULL;
 
-	if (req->state != EVI_REQ_RUNNING) {
-		ev_mutex_unlock(req->queue->lock);
-		return;
-	}
-	if (req->running.cancelled) {
-		ev_mutex_unlock(req->queue->lock);
-		return;
-	}
+	res->queue = queue;
+	return res;
+}
+void ev_req_cancel(ev_req_t req) {
+	if (req->running.cancelled) return;
 
 	req->running.cancel(req);
 	req->running.cancelled = true;
-
-	ev_mutex_unlock(req->queue->lock);
 }
 void ev_req_free(ev_req_t req) {
-	assert(req->state != EVI_REQ_DEAD);
 	free(req);
 }
