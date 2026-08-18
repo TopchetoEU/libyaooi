@@ -411,6 +411,10 @@ ev_code_t ev_fd_new(ev_fd_t *pres, uint64_t fd, bool owned) {
 	return EV_OK;
 }
 void ev_fd_close(ev_fd_t fd) {
+	#ifdef evi_unix_onclose
+		evi_unix_onclose(fd);
+	#endif
+
 	if (fd->owned) {
 		#ifndef EV_USE_LINUX
 		if (fd->is_at) {
