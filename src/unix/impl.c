@@ -138,17 +138,20 @@ static void _evi_sig_init() {
 	}
 }
 
-static bool evi_unix_isfd(ev_fd_t fd) {
+static bool evi_unix_isfd(ev_fd_t res) {
+	res->head = NULL;
+
 	#ifndef EV_USE_LINUX
-		return !fd->is_at;
+		return !res->is_at;
 	#else
-		(void)fd;
+		(void)res;
 		return true;
 	#endif
 }
 static void evi_unix_mkfd(ev_fd_t res, int fd) {
 	res->owned = true;
 	res->fd = fd;
+	res->head = NULL;
 	#ifndef EV_USE_LINUX
 		res->is_at = false;
 	#endif
