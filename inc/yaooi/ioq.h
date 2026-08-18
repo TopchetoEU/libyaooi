@@ -1,11 +1,11 @@
 #ifndef YO_IOQ_H
 #define YO_IOQ_H
 
-#include <yaioi/io.h>
-#include <yaioi/queue.h>
-#include <yaioi/addr.h>
-#include <yaioi/errno.h>
-#include <yaioi/signo.h>
+#include <yaooi/io.h>
+#include <yaooi/queue.h>
+#include <yaooi/addr.h>
+#include <yaooi/errno.h>
+#include <yaooi/signo.h>
 
 // Here, queue versions of some functions are presented
 // Those that don't have queue equivalents should be used only synchronously

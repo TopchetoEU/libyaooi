@@ -21,10 +21,10 @@
 #include <errno.h>
 #include <time.h>
 
-#include <yaioi/io.h>
-#include <yaioi/conf.h>
-#include <yaioi/errno.h>
-#include <yaioi/signo.h>
+#include <yaooi/io.h>
+#include <yaooi/conf.h>
+#include <yaooi/errno.h>
+#include <yaooi/signo.h>
 
 #include "../utils/multithread.h"
 

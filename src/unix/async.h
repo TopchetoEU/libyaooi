@@ -1,5 +1,5 @@
 #pragma once
-#include <yaioi/conf.h>
+#include <yaooi/conf.h>
 
 #ifdef /* multiplex */ YO_USE_EPOLL
 	#include "./epoll.h" // IWYU pragma: export

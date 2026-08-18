@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <string.h>
 
-#include <yaioi/addr.h> // IWYU pragma: export
+#include <yaooi/addr.h> // IWYU pragma: export
 
 static bool yo_parse_ipv4(const char *str, yo_addr_t *pres) {
 	yo_addr_t res;

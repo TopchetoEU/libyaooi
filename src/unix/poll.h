@@ -1,7 +1,7 @@
 #pragma once
 
-#include <yaioi/conf.h>
-#include <yaioi/errno.h>
+#include <yaooi/conf.h>
+#include <yaooi/errno.h>
 
 #include "./pollish.h"
 

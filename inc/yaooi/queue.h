@@ -3,8 +3,8 @@
 
 #include <stdbool.h>
 
-#include <yaioi/time.h>
-#include <yaioi/errno.h>
+#include <yaooi/time.h>
+#include <yaooi/errno.h>
 
 // Used to deploy a sync workload in an ev-managed thread
 typedef int (*yo_worker_t)(void *pargs);

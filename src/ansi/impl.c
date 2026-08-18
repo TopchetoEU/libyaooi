@@ -9,10 +9,10 @@
 #include <string.h>
 #include <time.h>
 
-#include <yaioi/conf.h>
-#include <yaioi/errno.h>
-#include <yaioi/queue.h>
-#include <yaioi/io.h>
+#include <yaooi/conf.h>
+#include <yaooi/errno.h>
+#include <yaooi/queue.h>
+#include <yaooi/io.h>
 
 #include "./impl.h" // IWYU pragma: export
 

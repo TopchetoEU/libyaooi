@@ -1,6 +1,6 @@
 #pragma once
 
-#include <yaioi/conf.h>
+#include <yaooi/conf.h>
 
 #include "./async.h" // IWYU pragma: export
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <yaioi/time.h> // IWYU pragma: export
+#include <yaooi/time.h> // IWYU pragma: export
 
 yo_time_t yo_timeadd(yo_time_t a, yo_time_t b) {
 	yo_time_t res = { .sec = a.sec + b.sec, .nsec = a.nsec + b.nsec };

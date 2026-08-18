@@ -2,8 +2,8 @@
 
 #include <stdbool.h>
 
-#include <yaioi/errno.h>
-#include <yaioi/queue.h>
+#include <yaooi/errno.h>
+#include <yaooi/queue.h>
 
 #include "./pool.h" // IWYU pragma: export
 

@@ -8,10 +8,10 @@
 #include <sys/select.h>
 #include <sys/poll.h>
 
-#include <yaioi/conf.h>
-#include <yaioi/errno.h>
-#include <yaioi/time.h>
-#include <yaioi/queue.h>
+#include <yaooi/conf.h>
+#include <yaooi/errno.h>
+#include <yaooi/time.h>
+#include <yaooi/queue.h>
 
 #include "./poll.h" // IWYU pragma: export
 

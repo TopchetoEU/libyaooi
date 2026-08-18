@@ -6,8 +6,8 @@
 
 #include <stdint.h>
 
-#include <yaioi/conf.h>
-#include <yaioi/errno.h>
+#include <yaooi/conf.h>
+#include <yaooi/errno.h>
 
 // Source files included here for a unity build
 

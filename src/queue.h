@@ -2,9 +2,9 @@
 
 #include <stdbool.h>
 
-#include <yaioi/conf.h>
-#include <yaioi/errno.h>
-#include <yaioi/queue.h>
+#include <yaooi/conf.h>
+#include <yaooi/errno.h>
+#include <yaooi/queue.h>
 
 #include "./utils/multithread.h"
 #include "./impl.h"

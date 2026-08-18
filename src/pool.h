@@ -2,7 +2,7 @@
 
 #include <stdbool.h>
 
-#include <yaioi/queue.h>
+#include <yaooi/queue.h>
 
 #include "./utils/multithread.h"
 

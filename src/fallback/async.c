@@ -9,8 +9,8 @@ In short, it generates a structure to pack the arguments of each IO op, a worker
 an implementation of the ev.h interface function.
 */
 
-#include <yaioi/conf.h>
-#include <yaioi/signo.h>
+#include <yaooi/conf.h>
+#include <yaooi/signo.h>
 
 #include <stddef.h>
 #include <stdlib.h>

@@ -4,10 +4,10 @@
 #include <stddef.h>
 #include <unistd.h>
 
-#include <yaioi/errno.h>
-#include <yaioi/queue.h>
-#include <yaioi/io.h>
-#include <yaioi/ioq.h>
+#include <yaooi/errno.h>
+#include <yaooi/queue.h>
+#include <yaooi/io.h>
+#include <yaooi/ioq.h>
 
 #include "./pollish.h" // IWYU pragma: export
 

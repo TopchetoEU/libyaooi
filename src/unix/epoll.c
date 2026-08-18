@@ -6,10 +6,10 @@
 #include <sys/stat.h>
 #include <sys/timerfd.h>
 
-#include <yaioi/conf.h>
-#include <yaioi/errno.h>
-#include <yaioi/queue.h>
-#include <yaioi/time.h>
+#include <yaooi/conf.h>
+#include <yaooi/errno.h>
+#include <yaooi/queue.h>
+#include <yaooi/time.h>
 
 #include "./epoll.h" // IWYU pragma: export
 

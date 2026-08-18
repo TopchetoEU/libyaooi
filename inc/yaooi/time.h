@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include <yaioi/conf.h>
+#include <yaooi/conf.h>
 
 typedef struct {
 	int64_t sec;

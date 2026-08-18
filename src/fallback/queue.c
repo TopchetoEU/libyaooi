@@ -1,8 +1,8 @@
 #pragma once
 
-#include <yaioi/queue.h>
-#include <yaioi/errno.h>
-#include <yaioi/time.h>
+#include <yaooi/queue.h>
+#include <yaooi/errno.h>
+#include <yaooi/time.h>
 
 #include "../utils/multithread.h"
 

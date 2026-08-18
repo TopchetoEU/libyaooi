@@ -1,22 +1,22 @@
 **THIS IS A DEV BRANCH, EXCPECT STUFF TO BREAK!!!**
 
-libyaioi is a dead-simple alternative to libuv for performing platform-specific operations in a non-blocking and platform-independent way.
+libyaooi is a dead-simple alternative to libuv for performing platform-specific operations in a non-blocking and platform-independent way.
 
 ## Core architecture
 
 This library works more or less the same way as libuv - a thread pool is used for blocking operations, which then push their results to a message queue, while non-blocking operations push their results on the queue when the non-blocking operation's callback is called.
 
-Where libyaioi differs from libuv is that it ONLY does IO, and instead of using callbacks to deliver messages, a `void*` is passed to the IO function, which then is returned from the message polling function, alongside an error code. It is up to the user code to determine what the semantic meaning of this user data is.
+Where libyaooi differs from libuv is that it ONLY does IO, and instead of using callbacks to deliver messages, a `void*` is passed to the IO function, which then is returned from the message polling function, alongside an error code. It is up to the user code to determine what the semantic meaning of this user data is.
 
 Of course, you can (and are encouraged to) implement some sort of callback system on top of this system (in my lua wrapper, this is done with a simple table of incremental udata -> callback).
 
 ## Why not libuv?
 
-libuv has a notoriously difficult build process - in comparison, libyaioi is a unity build - you can build it with a single gcc command. Also, the callback nature of libuv makes it a PITA to use in managed languages. libuv also, for some reason, decides to implement an utterly baffling OOP inheritance chain of different handles. libyaioi does none of that and is mostly procedural. Last but not least, libuv is a whopping 70K lines of code, while libyaioi doesn't even clock in at 2K LOC, and yet does more or less the same things libuv does (except for event queue management, which is delegated to client code, but a quality implementation should fit in under 5K LOC).
+libuv has a notoriously difficult build process - in comparison, libyaooi is a unity build - you can build it with a single gcc command. Also, the callback nature of libuv makes it a PITA to use in managed languages. libuv also, for some reason, decides to implement an utterly baffling OOP inheritance chain of different handles. libyaooi does none of that and is mostly procedural. Last but not least, libuv is a whopping 70K lines of code, while libyaooi doesn't even clock in at 2K LOC, and yet does more or less the same things libuv does (except for event queue management, which is delegated to client code, but a quality implementation should fit in under 5K LOC).
 
 ## Why libuv?
 
-Make no mistake, libyaioi is a hobby project and is largely untested, while libuv has been battle-tested for more than 10 years, so you can most likely count on it. Also, libyaioi still doesn't offer support for some of the stuff libuv offers (but it is trivially simple to implement them, as libyaioi exposes a `yo_exec` function, which executes a function in the threadpool of libyaioi and returns the result in the message queue).
+Make no mistake, libyaooi is a hobby project and is largely untested, while libuv has been battle-tested for more than 10 years, so you can most likely count on it. Also, libyaooi still doesn't offer support for some of the stuff libuv offers (but it is trivially simple to implement them, as libyaooi exposes a `yo_exec` function, which executes a function in the threadpool of libyaooi and returns the result in the message queue).
 
 ## Supported async backends
 

@@ -8,10 +8,10 @@
 #include <sys/types.h>
 #include <termios.h>
 
-#include <yaioi/io.h>
-#include <yaioi/errno.h>
-#include <yaioi/addr.h>
-#include <yaioi/queue.h>
+#include <yaooi/io.h>
+#include <yaooi/errno.h>
+#include <yaooi/addr.h>
+#include <yaooi/queue.h>
 
 #include "./async.h" // IWYU pragma: export
 

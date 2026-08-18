@@ -17,7 +17,7 @@ if jit.os ~= "Windows" then
 	]];
 end
 
-local libyaioi = ffi.load(jit.os == "Windows" and "./bin/Windows/libyaioi.dll" or "./bin/Linux/libyaioi.so");
+local libyaooi = ffi.load(jit.os == "Windows" and "./bin/Windows/libyaooi.dll" or "./bin/Linux/libyaooi.so");
 ffi.cdef [[
 typedef int yo_code_t;
 
@@ -357,15 +357,15 @@ local reqs = {};
 local tasks = {};
 local sleeps = {};
 
-local queue = libyaioi.yo_queue_new();
+local queue = libyaooi.yo_queue_new();
 
 local yo = {};
 
 local function qcall(func, cb, ...)
-	local req = libyaioi.yo_req_new(queue);
+	local req = libyaooi.yo_req_new(queue);
 
 	local code = func(req, ...);
-	if code ~= 0 then return nil, ffi.string(libyaioi.yo_strerr(code)), code end
+	if code ~= 0 then return nil, ffi.string(libyaooi.yo_strerr(code)), code end
 
 	reqs[tonumber(ffi.cast("size_t", req))] = cb;
 	return true;
@@ -373,7 +373,7 @@ end
 
 local function parse_ip(str)
 	local pres = ffi.new "yo_addr_t[1]";
-	assert(libyaioi.yo_addrparse(str, pres), "invalid IP");
+	assert(libyaooi.yo_addrparse(str, pres), "invalid IP");
 	return pres[0];
 end
 
@@ -401,11 +401,11 @@ end
 function yo.time(kind)
 	local res;
 	if kind == "real" then
-		res = libyaioi.yo_time(libyaioi.YO_CLOCK_REALTIME);
+		res = libyaooi.yo_time(libyaooi.YO_CLOCK_REALTIME);
 	elseif kind == "mono" then
-		res = libyaioi.yo_time(libyaioi.YO_CLOCK_MONOTIME);
+		res = libyaooi.yo_time(libyaooi.YO_CLOCK_MONOTIME);
 	elseif kind == "cpu" then
-		res = libyaioi.yo_time(libyaioi.YO_CLOCK_CPUTIME);
+		res = libyaooi.yo_time(libyaooi.YO_CLOCK_CPUTIME);
 	else
 		error "invalid clock type";
 	end
@@ -417,21 +417,21 @@ function yo.rawread(cb, fd, ptr, n)
 	local pn = ffi.new("size_t[1]", n);
 
 	local function handle(code)
-		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 		return invoke(cb, tonumber(pn[0]));
 	end
 
-	return qcall(libyaioi.yoa_read, handle, fd, ptr, pn);
+	return qcall(libyaooi.yoa_read, handle, fd, ptr, pn);
 end
 function yo.rawwrite(cb, fd, ptr, n)
 	local pn = ffi.new("size_t[1]", n);
 
 	local function handle(code)
-		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 		return invoke(cb, tonumber(pn[0]));
 	end
 
-	return qcall(libyaioi.yoa_write, handle, fd, ptr, pn);
+	return qcall(libyaooi.yoa_write, handle, fd, ptr, pn);
 end
 function yo.read(cb, sock, n)
 	local buff = ffi.new("char[?]", n);
@@ -452,29 +452,29 @@ function yo.write(cb, sock, str)
 end
 function yo.sync(cb, fd)
 	local function handle(code)
-		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 		return invoke(cb, true);
 	end
 
-	return qcall(libyaioi.yoa_stat, handle, fd);
+	return qcall(libyaooi.yoa_stat, handle, fd);
 end
 function yo.stat(cb, fd)
 	local pbuff = ffi.new "yo_stat_t[1]";
 
 	local function handle(code)
-		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 		return invoke(cb, pbuff[0]);
 	end
 
-	return qcall(libyaioi.yoa_stat, handle, fd, pbuff);
+	return qcall(libyaooi.yoa_stat, handle, fd, pbuff);
 end
-yo.close = libyaioi.yo_fd_close;
+yo.close = libyaooi.yo_fd_close;
 
 function yo.file_open(cb, path, flags, mode)
 	local pres = ffi.new "yo_fd_t[1]";
 
-	local code = libyaioi.yo_file_open(pres, path, flags, assert(tonumber(mode, 8)));
-	if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+	local code = libyaooi.yo_file_open(pres, path, flags, assert(tonumber(mode, 8)));
+	if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 
 	return pres[0];
 end
@@ -482,21 +482,21 @@ function yo.file_rawread(cb, fd, offset, ptr, n)
 	local pn = ffi.new("size_t[1]", n);
 
 	local function handle(code)
-		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 		return invoke(cb, pn[0]);
 	end
 
-	return qcall(libyaioi.yoa_file_read, handle, fd, ptr, pn, offset);
+	return qcall(libyaooi.yoa_file_read, handle, fd, ptr, pn, offset);
 end
 function yo.file_rawwrite(cb, fd, offset, ptr, n)
 	local pn = ffi.new("size_t[1]", n);
 
 	local function handle(code)
-		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 		return invoke(cb, pn[0]);
 	end
 
-	return qcall(libyaioi.yoa_file_write, handle, fd, ptr, pn, offset);
+	return qcall(libyaooi.yoa_file_write, handle, fd, ptr, pn, offset);
 end
 function yo.file_read(cb, fd, offset, n)
 	local buff = ffi.new("char[?]", n);
@@ -518,33 +518,33 @@ end
 
 function yo.dir_new(cb, path, mode)
 	local function handle(code)
-		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 		return invoke(cb, true);
 	end
 
-	return qcall(libyaioi.yoa_dir_new, handle, path, assert(tonumber(mode or 777, 8)));
+	return qcall(libyaooi.yoa_dir_new, handle, path, assert(tonumber(mode or 777, 8)));
 end
 function yo.dir_open(cb, path)
 	local pres = ffi.new "yo_dir_t[1]";
 
 	local function handle(code)
-		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 		return invoke(cb, pres[0]);
 	end
 
-	return qcall(libyaioi.yoa_dir_open, handle, pres, path);
+	return qcall(libyaooi.yoa_dir_open, handle, pres, path);
 end
 function yo.dir_next(cb, dir)
 	local pname = ffi.new "char*[1]";
 
 	local function handle(code)
-		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 		return invoke(cb, pname[0]);
 	end
 
-	return qcall(libyaioi.yoa_dir_next, handle, dir, pname);
+	return qcall(libyaooi.yoa_dir_next, handle, dir, pname);
 end
-yo.dir_close = libyaioi.yo_dir_close;
+yo.dir_close = libyaooi.yo_dir_close;
 
 function yo.proc_spawn(opts)
 	local pres = ffi.new "yo_proc_t[1]";
@@ -585,8 +585,8 @@ function yo.proc_spawn(opts)
 
 	env[#opts.env + env_key_n] = nil;
 
-	local code = libyaioi.yo_proc_spawn(pres, 0, argv, env, opts.cwd, pin, pout, perr);
-	if code ~= 0 then return nil, ffi.string(libyaioi.yo_strerr(code)), code end
+	local code = libyaooi.yo_proc_spawn(pres, 0, argv, env, opts.cwd, pin, pout, perr);
+	if code ~= 0 then return nil, ffi.string(libyaooi.yo_strerr(code)), code end
 	return pres[0], pin and pin[0], pout and pout[0], perr and perr[0];
 end
 function yo.proc_wait(cb, proc)
@@ -594,13 +594,13 @@ function yo.proc_wait(cb, proc)
 	local psig = ffi.new "int[1]";
 
 	local function handle(code)
-		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 		return invoke(cb, tonumber(pcode[0]), tonumber(psig[0]));
 	end
 
-	return qcall(libyaioi.yoa_proc_wait, handle, proc, pcode, psig);
+	return qcall(libyaooi.yoa_proc_wait, handle, proc, pcode, psig);
 end
-yo.proc_disown = libyaioi.yo_proc_disown;
+yo.proc_disown = libyaooi.yo_proc_disown;
 
 function yo.socket_connect(cb, addr, port, type)
 	local itype;
@@ -615,11 +615,11 @@ function yo.socket_connect(cb, addr, port, type)
 	end
 
 	local function handle(code)
-		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 		return invoke(cb, pres[0]);
 	end
 
-	return qcall(libyaioi.yoa_socket_connect, handle, pres, itype, parse_ip(addr), port);
+	return qcall(libyaooi.yoa_socket_connect, handle, pres, itype, parse_ip(addr), port);
 end
 function yo.socket_accept(cb, server)
 	local pres = ffi.new "yo_fd_t[1]";
@@ -627,11 +627,11 @@ function yo.socket_accept(cb, server)
 	local pport = ffi.new "uint16_t[1]";
 
 	local function handle(code)
-		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 		return invoke(cb, pres[0], paddr[0], pport[0]);
 	end
 
-	return qcall(libyaioi.yoa_socket_accept, handle, server, pres, paddr, pport);
+	return qcall(libyaooi.yoa_socket_accept, handle, server, pres, paddr, pport);
 end
 function yo.socket_bind(addr, port, type, max_n)
 	local itype;
@@ -645,8 +645,8 @@ function yo.socket_bind(addr, port, type, max_n)
 		error "invalid type";
 	end
 
-	local code = libyaioi.yo_socket_bind(pres, parse_ip(addr), itype, port, max_n);
-	if code ~= 0 then return nil, ffi.string(libyaioi.yo_strerr(code)), code end
+	local code = libyaooi.yo_socket_bind(pres, parse_ip(addr), itype, port, max_n);
+	if code ~= 0 then return nil, ffi.string(libyaooi.yo_strerr(code)), code end
 
 	return pres[0];
 end
@@ -655,7 +655,7 @@ function yo.dns_getaddrinfo(cb, name, flags)
 	local pres = ffi.new "yo_addrinfo_t[1]";
 
 	local function handle(code)
-		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 
 		local res = {};
 
@@ -677,33 +677,33 @@ function yo.dns_getaddrinfo(cb, name, flags)
 		return invoke(cb, res);
 	end
 
-	return qcall(libyaioi.yoa_dns_getaddrinfo, handle, pres, name, flags);
+	return qcall(libyaooi.yoa_dns_getaddrinfo, handle, pres, name, flags);
 end
 
 function yo.sig_on(signo)
-	local code = libyaioi.yo_sig_on(signo);
-	if code ~= 0 then return nil, ffi.string(libyaioi.yo_strerr(code)), code end
+	local code = libyaooi.yo_sig_on(signo);
+	if code ~= 0 then return nil, ffi.string(libyaooi.yo_strerr(code)), code end
 end
 function yo.sig_off(signo)
-	local code = libyaioi.yo_sig_off(signo);
-	if code ~= 0 then return nil, ffi.string(libyaioi.yo_strerr(code)), code end
+	local code = libyaooi.yo_sig_off(signo);
+	if code ~= 0 then return nil, ffi.string(libyaooi.yo_strerr(code)), code end
 end
 function yo.sig_wait(cb)
 	local pres = ffi.new "yo_signo_t[1]";
 
 	local function handle(code)
-		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaioi.yo_strerr(code)), code) end
+		if code ~= 0 then return invoke(cb, nil, ffi.string(libyaooi.yo_strerr(code)), code) end
 		return invoke(cb, tonumber(pres[0]));
 	end
 
-	return qcall(libyaioi.yoa_sig_wait, handle, pres);
+	return qcall(libyaooi.yoa_sig_wait, handle, pres);
 end
 
 function yo.getpath(type)
 	local pres = ffi.new "char*[1]";
-	local code = libyaioi.yo_getpath(pres, type);
+	local code = libyaooi.yo_getpath(pres, type);
 
-	if code ~= 0 then return nil, ffi.string(libyaioi.yo_strerr(code)), code end
+	if code ~= 0 then return nil, ffi.string(libyaooi.yo_strerr(code)), code end
 
 	local res = ffi.string(pres[0]);
 	libc.free(pres[0]);
@@ -711,26 +711,26 @@ function yo.getpath(type)
 end
 function yo.env_get(name)
 	local pres = ffi.new "char*[1]";
-	local code = libyaioi.yo_env_get(name, pres);
+	local code = libyaooi.yo_env_get(name, pres);
 
-	if code ~= 0 then return nil, ffi.string(libyaioi.yo_strerr(code)), code end
+	if code ~= 0 then return nil, ffi.string(libyaooi.yo_strerr(code)), code end
 
 	local res = ffi.string(pres[0]);
 	libc.free(pres[0]);
 	return res;
 end
 function yo.env_set(name, val)
-	local code = libyaioi.yo_env_set(name, val);
-	if code ~= 0 then return nil, ffi.string(libyaioi.yo_strerr(code)), code end
+	local code = libyaooi.yo_env_set(name, val);
+	if code ~= 0 then return nil, ffi.string(libyaooi.yo_strerr(code)), code end
 	return true;
 end
 
-yo.enviter_new = libyaioi.yo_enviter_new;
-yo.enviter_close = libyaioi.yo_enviter_close;
+yo.enviter_new = libyaooi.yo_enviter_new;
+yo.enviter_close = libyaooi.yo_enviter_close;
 function yo.enviter_next(iter)
 	local pres = ffi.new "const char *[1]";
-	local code = libyaioi.yo_enviter_next(iter, pres);
-	if code ~= 0 then return nil, ffi.string(libyaioi.yo_strerr(code)), code end
+	local code = libyaooi.yo_enviter_next(iter, pres);
+	if code ~= 0 then return nil, ffi.string(libyaooi.yo_strerr(code)), code end
 
 	if pres[0] == ffi.cast("void*", 0) then
 		return nil;
@@ -828,13 +828,13 @@ local function run()
 		local preq = ffi.new "yo_req_t[1]";
 		local perr = ffi.new "int[1]";
 
-		local code = libyaioi.yo_queue_poll(queue, pdeadline, preq, perr);
+		local code = libyaooi.yo_queue_poll(queue, pdeadline, preq, perr);
 		if code == 0 then
 			local ireq = assert(tonumber(ffi.cast("size_t", preq[0])));
 			local cb = reqs[ireq];
 			reqs[ireq] = nil;
 
-			libyaioi.yo_req_free(preq[0]);
+			libyaooi.yo_req_free(preq[0]);
 
 			local ok, err = pinvoke(cb, perr[0]);
 			if not ok then return nil, err end
@@ -882,7 +882,7 @@ local function open_tcp(name, port)
 end
 
 local pstderr = ffi.new "yo_fd_t[1]";
-libyaioi.yo_tty_err(pstderr);
+libyaooi.yo_tty_err(pstderr);
 local stderr = pstderr[0];
 
 local function netcat(url)
@@ -961,4 +961,4 @@ fork(function ()
 end);
 
 assert(run());
-libyaioi.yo_queue_free(queue);
+libyaooi.yo_queue_free(queue);

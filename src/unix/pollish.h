@@ -4,10 +4,10 @@
 
 #include <stdint.h>
 
-#include <yaioi/io.h>
-#include <yaioi/conf.h>
-#include <yaioi/errno.h>
-#include <yaioi/queue.h>
+#include <yaooi/io.h>
+#include <yaooi/conf.h>
+#include <yaooi/errno.h>
+#include <yaooi/queue.h>
 
 typedef enum {
 	YOI_PL_READABLE = 1,

@@ -1,7 +1,7 @@
 #ifndef YO_ERRNO_H
 #define YO_ERRNO_H
 
-#include <yaioi/conf.h>
+#include <yaooi/conf.h>
 
 // These have more or less been ripped from libuv
 

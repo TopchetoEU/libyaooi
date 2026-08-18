@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-#include <yaioi/io.h>
+#include <yaooi/io.h>
 
 #include "../fallback/queue.h" // IWYU pragma: export
 

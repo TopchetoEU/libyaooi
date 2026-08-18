@@ -5,9 +5,9 @@
 #include <errno.h> // IWYU pragma: keep
 #include <stdlib.h>
 
-#include <yaioi/time.h>
-#include <yaioi/conf.h>
-#include <yaioi/errno.h>
+#include <yaooi/time.h>
+#include <yaooi/conf.h>
+#include <yaooi/errno.h>
 
 #if defined YO_USE_MULTITHREAD && defined YO_USE_WIN32
 	#include <winsock2.h>

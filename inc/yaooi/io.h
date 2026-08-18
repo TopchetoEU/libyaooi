@@ -1,10 +1,10 @@
 #ifndef YO_IO_H
 #define YO_IO_H
 
-#include <yaioi/queue.h>
-#include <yaioi/addr.h>
-#include <yaioi/errno.h>
-#include <yaioi/signo.h>
+#include <yaooi/queue.h>
+#include <yaooi/addr.h>
+#include <yaooi/errno.h>
+#include <yaooi/signo.h>
 
 // These are the I/O wrapper functions - they will return 0 on success and a negative errno code on error
 // All the other arguments are self-explanatory. All of these functions return their results in a pointer, provided by the callee
