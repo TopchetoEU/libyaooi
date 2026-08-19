@@ -1,3 +1,5 @@
+// libyaooi, Copyright (C) 2025-2026 topchetoeu, see LICENSE for full LGPL text
+
 #pragma once
 
 // Utility for poll-like (poll-ish) interfaces. This abstracts basically all operations around a poll-like API, except the poll function itself

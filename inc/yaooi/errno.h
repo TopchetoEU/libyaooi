@@ -1,3 +1,5 @@
+// libyaooi, Copyright (C) 2025-2026 topchetoeu, see LICENSE for full LGPL text
+
 #ifndef YO_ERRNO_H
 #define YO_ERRNO_H
 

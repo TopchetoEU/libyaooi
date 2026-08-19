@@ -1,7 +1,9 @@
+// libyaooi, Copyright (C) 2025-2026 topchetoeu, see LICENSE for full LGPL text
+
 #ifndef YO_SIGNO_H
 #define YO_SIGNO_H
 
-// Signals in libev do not correlate to OS signals 1:1. You should treat these more like semantic events to be handled
+// Signals in libyaooi do not correlate to OS signals 1:1. You should treat these more like semantic events to be handled
 typedef enum {
 	// The user pressed Ctrl+C
 	YO_SIGINT,

@@ -1,3 +1,5 @@
+// libyaooi, Copyright (C) 2025-2026 topchetoeu, see LICENSE for full LGPL text
+
 #ifndef YO_ADDR_H
 #define YO_ADDR_H
 
