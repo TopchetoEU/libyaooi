@@ -934,9 +934,8 @@ fork(function ()
 	end
 end);
 
--- fork(netcat, "www.topcheto.eu");
+fork(netcat, "www.topcheto.eu");
 fork(netcat, "www.example.org");
-fork(netcat, "www.example.com");
 
 fork(function ()
 	local base = yo.time "mono";
