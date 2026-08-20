@@ -22,9 +22,9 @@ int yo_timecmp(yo_time_t a, yo_time_t b);
 int64_t yo_timems(yo_time_t time);
 
 typedef enum {
-	YO_CLOCK_REALTIME,
-	YO_CLOCK_MONOTIME,
-	YO_CLOCK_CPUTIME,
+	YO_CLOCK_REAL,
+	YO_CLOCK_MONO,
+	YO_CLOCK_CPU,
 } yo_clock_t;
 
 // Gets the current monotonic time

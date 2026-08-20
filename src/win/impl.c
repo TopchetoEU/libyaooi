@@ -1312,12 +1312,12 @@ void yo_enviter_close(yo_enviter_t iter) {
 
 yo_time_t yo_time(yo_clock_t clock) {
 	switch (clock) {
-		case YO_CLOCK_REALTIME: {
+		case YO_CLOCK_REAL: {
 			FILETIME time;
 			GetSystemTimePreciseAsFileTime(&time);
 			return yoi_win_conv_filetime(time);
 		}
-		case YO_CLOCK_MONOTIME: {
+		case YO_CLOCK_MONO: {
 			LARGE_INTEGER counter, freq;
 			QueryPerformanceCounter(&counter);
 			QueryPerformanceFrequency(&freq);
@@ -1327,7 +1327,7 @@ yo_time_t yo_time(yo_clock_t clock) {
 				.nsec = (uint64_t)(counter.QuadPart % freq.QuadPart) * 1000000000LL / freq.QuadPart,
 			};
 		}
-		case YO_CLOCK_CPUTIME: {
+		case YO_CLOCK_CPU: {
 			FILETIME kernel, user;
 			GetThreadTimes(GetCurrentThread(), NULL, NULL, &kernel, &user);
 			return yo_timeadd(yoi_win_conv_filetime(kernel), yoi_win_conv_filetime(user));
@@ -1336,7 +1336,7 @@ yo_time_t yo_time(yo_clock_t clock) {
 	}
 }
 void yo_timesleep(yo_time_t until) {
-	Sleep(yo_timems(yo_timesub(until, yo_time(YO_CLOCK_MONOTIME))));
+	Sleep(yo_timems(yo_timesub(until, yo_time(YO_CLOCK_MONO))));
 }
 
 #define yoa_sig_wait(...) yoa_sig_wait(__VA_ARGS__)

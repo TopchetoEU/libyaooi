@@ -1230,9 +1230,9 @@ yo_time_t yo_time(yo_clock_t clock) {
 	struct timespec res;
 	int err;
 	switch (clock) {
-		case YO_CLOCK_REALTIME: err = clock_gettime(CLOCK_REALTIME, &res); break;
-		case YO_CLOCK_MONOTIME: err = clock_gettime(CLOCK_MONOTONIC, &res); break;
-		case YO_CLOCK_CPUTIME: {
+		case YO_CLOCK_REAL: err = clock_gettime(CLOCK_REALTIME, &res); break;
+		case YO_CLOCK_MONO: err = clock_gettime(CLOCK_MONOTONIC, &res); break;
+		case YO_CLOCK_CPU: {
 			#ifdef YO_USE_LINUX
 				err = clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &res); break;
 			#else

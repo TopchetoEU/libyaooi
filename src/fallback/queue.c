@@ -35,7 +35,7 @@ void yoi_queue_impl_notify(yo_queue_t queue) {
 				else yo_cond_wait(queue->impl.cond, queue->lock);
 				yo_mutex_unlock(queue->lock);
 			#else
-				if (pdeadline && yo_timecmp(yo_time(YO_CLOCK_MONOTIME), *pdeadline) > 0) return YO_ETIMEDOUT;
+				if (pdeadline && yo_timecmp(yo_time(YO_CLOCK_MONO), *pdeadline) > 0) return YO_ETIMEDOUT;
 			#endif
 		}
 	}

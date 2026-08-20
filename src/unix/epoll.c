@@ -52,7 +52,7 @@ static yo_code_t yoi_pl_impl_poll(yo_queue_t queue, const yo_time_t *deadline, v
 	struct epoll_event evn = { 0 };
 
 	if (deadline) {
-		yo_time_t now = yo_time(YO_CLOCK_MONOTIME);
+		yo_time_t now = yo_time(YO_CLOCK_MONO);
 		if (yo_timecmp(now, *deadline) > 0) return YO_ETIMEDOUT;
 
 		timerfd_settime(queue->impl.timer_fd, TFD_TIMER_ABSTIME, &(struct itimerspec) {

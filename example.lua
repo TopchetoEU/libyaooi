@@ -79,9 +79,9 @@ int yo_timecmp(yo_time_t a, yo_time_t b);
 int64_t yo_timems(yo_time_t time);
 
 typedef enum {
-	YO_CLOCK_REALTIME,
-	YO_CLOCK_MONOTIME,
-	YO_CLOCK_CPUTIME,
+	YO_CLOCK_REAL,
+	YO_CLOCK_MONO,
+	YO_CLOCK_CPU,
 } yo_clock_t;
 
 // Gets the current monotonic time
@@ -423,11 +423,11 @@ end
 function yo.time(kind)
 	local res;
 	if kind == "real" then
-		res = libyaooi.yo_time(libyaooi.YO_CLOCK_REALTIME);
+		res = libyaooi.yo_time(libyaooi.YO_CLOCK_REAL);
 	elseif kind == "mono" then
-		res = libyaooi.yo_time(libyaooi.YO_CLOCK_MONOTIME);
+		res = libyaooi.yo_time(libyaooi.YO_CLOCK_MONO);
 	elseif kind == "cpu" then
-		res = libyaooi.yo_time(libyaooi.YO_CLOCK_CPUTIME);
+		res = libyaooi.yo_time(libyaooi.YO_CLOCK_CPU);
 	else
 		error "invalid clock type";
 	end

@@ -566,9 +566,9 @@ void yo_enviter_close(yo_enviter_t iter) {
 
 yo_time_t yo_time(yo_clock_t kind) {
 	switch (kind) {
-		case YO_CLOCK_REALTIME: return (yo_time_t) { .sec = time(NULL), .nsec = 0 };
-		case YO_CLOCK_CPUTIME:
-		case YO_CLOCK_MONOTIME: {
+		case YO_CLOCK_REAL: return (yo_time_t) { .sec = time(NULL), .nsec = 0 };
+		case YO_CLOCK_CPU:
+		case YO_CLOCK_MONO: {
 			clock_t now = clock();
 			return (yo_time_t) { .sec = now / CLOCKS_PER_SEC, .nsec = now % CLOCKS_PER_SEC * 1000 };
 		}

@@ -20,7 +20,7 @@
 #include "./pollish.c"
 
 static uint64_t _yoi_poll_subms_diff(yo_time_t timeout) {
-	yo_time_t diff = yo_timesub(yo_time(YO_CLOCK_MONOTIME), timeout);
+	yo_time_t diff = yo_timesub(yo_time(YO_CLOCK_MONO), timeout);
 
 	if (diff.sec != 0) return 0;
 	if (diff.nsec > 1000000) return 0;
@@ -89,7 +89,7 @@ static size_t _yoi_poll_wrapper(yo_queue_t queue, size_t fd_n, const yo_time_t *
 	while (true) {
 		int code;
 		if (deadline) {
-			yo_time_t diff = yo_timesub(*deadline, yo_time(YO_CLOCK_MONOTIME));
+			yo_time_t diff = yo_timesub(*deadline, yo_time(YO_CLOCK_MONO));
 
 			#ifdef YO_USE_LINUX
 				if (diff.sec < 0) {

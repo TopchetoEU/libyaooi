@@ -33,7 +33,7 @@
 	#define yo_cond_free(cond) ((void)cond)
 	#define yo_cond_wait(cond, mut) (void)SleepConditionVariableCS(cond, mut, INFINITE)
 	static inline yo_code_t yo_cond_timewait(yo_cond_t cond, yo_mutex_t mut, yo_time_t timeout) {
-		int64_t ms = yo_timems(yo_timesub(timeout, yo_time(YO_CLOCK_MONOTIME)));
+		int64_t ms = yo_timems(yo_timesub(timeout, yo_time(YO_CLOCK_MONO)));
 		if (ms < 0) ms = 0;
 
 		if (!SleepConditionVariableCS(cond, mut, ms)) return YO_ETIMEDOUT;
