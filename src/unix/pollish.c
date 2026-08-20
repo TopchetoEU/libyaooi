@@ -4,6 +4,7 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <unistd.h>
 
 #include <yaooi/errno.h>
@@ -104,8 +105,8 @@ static yo_code_t yoi_pl_init(yoi_pl_t pl, yo_queue_t queue) {
 
 	int msg_pipe[2];
 	if (pipe(msg_pipe) < 0) { code = yoi_unix_conv_errno(errno); goto fail_pipe; }
-	if (fcntl(msg_pipe[0], F_SETFD, O_NONBLOCK) < 0) { code = yoi_unix_conv_errno(errno); goto fail_fcntl; }
-	if (fcntl(msg_pipe[1], F_SETFD, O_NONBLOCK) < 0) { code = yoi_unix_conv_errno(errno); goto fail_fcntl; }
+	if (fcntl(msg_pipe[0], F_SETFL, O_NONBLOCK) < 0) { code = yoi_unix_conv_errno(errno); goto fail_fcntl; }
+	if (fcntl(msg_pipe[1], F_SETFL, O_NONBLOCK) < 0) { code = yoi_unix_conv_errno(errno); goto fail_fcntl; }
 
 	pl->notify_read = msg_pipe[0];
 	pl->notify_write = msg_pipe[1];
@@ -126,7 +127,8 @@ static yo_code_t yoi_pl_free(yoi_pl_t pl) {
 	return YO_OK;
 }
 static yo_code_t yoi_queue_impl_notify(yo_queue_t queue) {
-	if (write(queue->impl.pl.notify_write, &(uint8_t) { 0 }, sizeof(uint8_t)) < 0) {
+	uint8_t buff = 0;
+	if (write(queue->impl.pl.notify_write, &buff, sizeof buff) < 0) {
 		if (errno != EWOULDBLOCK) return yoi_unix_conv_errno(errno);
 	}
 
@@ -156,7 +158,11 @@ yo_code_t (yo_queue_poll)(yo_queue_t queue, const yo_time_t *deadline, yo_req_t 
 		if (err != YO_OK) return err;
 
 		yo_fd_t fd = (yo_fd_t)udata;
-		if (!fd) continue;
+		if (!fd) {
+			uint8_t buff[1024];
+			while (read(queue->impl.pl.notify_read, &buff, sizeof buff) >= 0);
+			continue;
+		}
 
 		yo_req_t req = _yoi_pl_get_req(fd, ready);
 		if (!req) continue;
