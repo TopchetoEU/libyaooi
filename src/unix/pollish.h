@@ -52,6 +52,7 @@ typedef struct {
 typedef struct {
 	unsigned read_n, write_n;
 } yoi_fd_ioq_t;
+#define yoi_fd_ioq
 
 // yo_code_t yoa_socket_accept(yo_req_t req, yo_fd_t server, yo_fd_t client, yo_addr_t *paddr, uint16_t *pport);
 
@@ -70,6 +71,9 @@ static yo_code_t yoi_pl_init(yoi_pl_t pl, yo_queue_t queue);
 static yo_code_t yoi_pl_free(yoi_pl_t pl);
 
 static void (yoi_unix_onclose)(yo_fd_t fd);
+
+static void yoi_fd_ioq_init(yo_fd_t fd);
+static void yoi_fd_ioq_free(yo_fd_t fd);
 
 // These are defined, so that the fallbacks can be ignored later on
 #define yoa_read(...) yoa_read(__VA_ARGS__)

@@ -227,3 +227,11 @@ yo_code_t (yoa_socket_accept)(yo_req_t req, yo_fd_t server, yo_fd_t *pclient, yo
 
 	return _yoi_pl_req_start(req);
 }
+
+static void yoi_fd_ioq_init(yo_fd_t fd) {
+	fd->ioq.read_n = 0;
+	fd->ioq.write_n = 0;
+}
+static void yoi_fd_ioq_free(yo_fd_t fd) {
+	(void)fd;
+}

@@ -157,6 +157,9 @@ static void yoi_unix_mkfd(yo_fd_t res, int fd) {
 	#ifndef YO_USE_LINUX
 		res->is_at = false;
 	#endif
+	#ifdef yoi_fd_ioq
+		yoi_fd_ioq_init(res);
+	#endif
 }
 #ifndef YO_USE_LINUX
 static bool yoi_unix_mkat(yo_fd_t res, const char *path) {
@@ -429,8 +432,11 @@ void yo_fd_close(yo_fd_t fd) {
 		#endif
 		{
 			while (close(fd->fd) < 0) {
-				if (errno != EINTR) return;
+				if (errno != EINTR) break;
 			}
+			#ifdef yoi_fd_ioq
+				yoi_fd_ioq_free(fd);
+			#endif
 		}
 	}
 
