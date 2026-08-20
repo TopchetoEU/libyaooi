@@ -1,38 +1,41 @@
-**THIS IS A DEV BRANCH, EXCPECT STUFF TO BREAK!!!**
-
 libyaooi (Yet Another OS Operations Interface, you pervert) is a dead-simple alternative to libuv for performing platform-specific operations in a non-blocking and platform-independent way.
 
 ## Core architecture
 
-This library works more or less the same way as libuv - a thread pool is used for blocking operations, which then push their results to a message queue, while non-blocking operations push their results on the queue when the non-blocking operation's callback is called.
+This library works more or less the same way as libuv - a thread pool is used for blocking operations, which then push their results to a message queue, while non-blocking operations return their results directly from the poll functions (without going thru the queue).
 
-Where libyaooi differs from libuv is that it ONLY does IO, and instead of using callbacks to deliver messages, a `void*` is passed to the IO function, which then is returned from the message polling function, alongside an error code. It is up to the user code to determine what the semantic meaning of this user data is.
+Where libyaooi differs from libuv is that it ONLY does IO, and instead of using callbacks to deliver messages, a `yo_req_t` object is used to keep track of async requests. It is up to the user code to associate said object with any useful callback/coroutine/userdata.
 
-Of course, you can (and are encouraged to) implement some sort of callback system on top of this system (in my lua wrapper, this is done with a simple table of incremental udata -> callback).
+Another advantage over libuv we have is that libyaooi provides sync functions, which are just simple wrappers around the underlying functions (so you can use this library as just a cross-platform layer over IO and OS operations).
 
 ## Why not libuv?
 
-libuv has a notoriously difficult build process - in comparison, libyaooi is a unity build - you can build it with a single gcc command. Also, the callback nature of libuv makes it a PITA to use in managed languages. libuv also, for some reason, decides to implement an utterly baffling OOP inheritance chain of different handles. libyaooi does none of that and is mostly procedural. Last but not least, libuv is a whopping 70K lines of code, while libyaooi doesn't even clock in at 2K LOC, and yet does more or less the same things libuv does (except for event queue management, which is delegated to client code, but a quality implementation should fit in under 5K LOC).
+libuv has grown into a beast - it has almost 100K LOC, requires three separate pieces of software to be built and completely takes over your event loop. This is simply because libuv tries to do everything - the event loop and IO operations. libyaooi specializes in only giving you an interface to a set of common OS operations + the OS's polling mechanism. If you seek a simple and robust IO library to use in your next runtime/interpreter, libyaooi is your best choice.
 
 ## Why libuv?
 
-Make no mistake, libyaooi is a hobby project and is largely untested, while libuv has been battle-tested for more than 10 years, so you can most likely count on it. Also, libyaooi still doesn't offer support for some of the stuff libuv offers (but it is trivially simple to implement them, as libyaooi exposes a `yo_exec` function, which executes a function in the threadpool of libyaooi and returns the result in the message queue).
+Although libyaooi is vastly simpler than libuv, libuv has a lot more support behind it and has been battle-tested for the better part of the past two decades.
 
-## Supported async backends
+## Backends
 
-- epoll
-- poll
-- /dev/poll (planned)
-- kqueue (planned)
-- whatever windows offers (planned)
+Available:
 
-(uring is NOT planned, as it is bullshit)
+- Win32 (sync)
+- Posix (sync)
+- ansic (sync)
+- epoll (async)
+- poll (async)
 
-## Supported systems
+Planned:
 
-- ANSI (very rudimentary, whatever ANSIC has)
-- Posix
-- Win32
+- /dev/poll (async)
+- kqueue (async)
+- Win32 IOCP (async)
+
+NOT planned:
+
+- io_uring (past versions had it, it was a major pain for almost no benefit)
+- Messenger pigeons (tried it, there was too much bird poo involved)
 
 ## General pattern of usage
 
