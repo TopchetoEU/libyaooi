@@ -78,6 +78,8 @@ static yo_code_t yoi_pl_impl_poll(yo_queue_t queue, const yo_time_t *deadline, v
 
 	if (evn.data.fd == queue->impl.timer_fd) {
 		assert(deadline != NULL && "timer returned without a timeout");
+		char buff[8];
+		read(evn.data.fd, buff, sizeof buff);
 		return YO_ETIMEDOUT;
 	}
 
