@@ -38,9 +38,7 @@
 #include "../time.c"
 #include "./async.c" // IWYU pragma: export
 
-#ifndef __USE_GNU
-	extern char **environ;
-#endif
+extern char **environ;
 
 static bool _core_sig_init = false;
 static yo_mutex_t _core_sig_mut;

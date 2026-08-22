@@ -25,7 +25,7 @@
 #ifdef WIN32
 	extern char **_environ;
 	#define environ _environ
-#elif !defined __USE_GNU
+#else
 	extern char **environ;
 #endif
 
