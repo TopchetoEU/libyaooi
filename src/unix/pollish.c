@@ -73,14 +73,13 @@ static yo_code_t _yoi_pl_req_start(yo_req_t req) {
 	yo_code_t code = yoi_pl_impl_setmask(req->queue, fd, fd->fd, mask);
 	yoi_req_begin(req, _yoi_pl_req_cancel);
 
-	yoi_dlist_add(req_ioq, fd->head, req);
-
 	// The handle doesn't support epoll, it must go thru the sync route
 	if (code == YO_EPERM) {
 		yoi_req_end(req, _yoi_pl_req_do(req));
 		return YO_OK;
 	}
 
+	yoi_dlist_add(req_ioq, fd->head, req);
 	return code;
 }
 static yo_code_t _yoi_pl_req_stop(yo_req_t req) {

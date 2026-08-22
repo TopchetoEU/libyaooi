@@ -141,8 +141,6 @@ static void _yoi_sig_init() {
 }
 
 static bool yoi_unix_isfd(yo_fd_t res) {
-	res->head = NULL;
-
 	#ifndef YO_USE_LINUX
 		return !res->is_at;
 	#else
@@ -338,7 +336,7 @@ static yo_code_t yoi_unix_conv_errno(int unixerr) {
 		case ENOMEDIUM: return YO_ENOMEDIUM;
 		case ECANCELED: return YO_ECANCELED;
 		case 0: return YO_OK;
-		case -1: return YO_EUNKNOWN;
+		case -1: assert(false && "result passed to yoi_unic_conv_errno");
 		default: return YO_EUNKNOWN;
 	}
 }
@@ -463,7 +461,8 @@ yo_code_t yo_write(yo_fd_t fd, char *buff, size_t *pn) {
 }
 yo_code_t yo_sync(yo_fd_t fd) {
 	if (!yoi_unix_isfd(fd)) return YO_EBADF;
-	return yoi_unix_conv_errno(fsync(fd->fd));
+	if (fsync(fd->fd) < 0) return yoi_unix_conv_errno(errno);
+	return YO_OK;
 }
 yo_code_t yo_stat(yo_fd_t fd, yo_stat_t *buff) {
 	struct stat res;
@@ -710,8 +709,8 @@ yo_code_t yo_socket_bind(yo_fd_t *pres, yo_proto_t proto, yo_addr_t addr, uint16
 	struct sockaddr_storage arg_addr;
 	int len = yoi_unix_conv_addr(addr, port, &arg_addr);
 
-	if (bind(server->fd, (void*)&arg_addr, len) < 0) goto err_bind;
-	if (listen(server->fd, max_n) < 0) goto err_listen;
+	if (bind(sock, (void*)&arg_addr, len) < 0) goto err_bind;
+	if (listen(sock, max_n) < 0) goto err_listen;
 
 	yoi_unix_mkfd(server, sock);
 	*pres = server;
@@ -734,7 +733,7 @@ yo_code_t yo_socket_accept(yo_fd_t server, yo_fd_t *pres, yo_addr_t *paddr, uint
 	struct sockaddr_storage addr = {};
 	socklen_t addr_len = sizeof addr;
 
-	int res = accept((int)(size_t)server, (void*)&addr, &addr_len);
+	int res = accept(server->fd, (void*)&addr, &addr_len);
 	if (res < 0) goto err_accept;
 
 	yoi_unix_conv_sockaddr(&addr, paddr, pport);
@@ -1240,7 +1239,7 @@ yo_time_t yo_time(yo_clock_t clock) {
 		case YO_CLOCK_MONO: err = clock_gettime(CLOCK_MONOTONIC, &res); break;
 		case YO_CLOCK_CPU: {
 			#ifdef YO_USE_LINUX
-				err = clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &res); break;
+				err = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &res); break;
 			#else
 				struct tms buff;
 				times(&buff);
@@ -1257,9 +1256,12 @@ yo_time_t yo_time(yo_clock_t clock) {
 	return (yo_time_t) { .sec = res.tv_sec, .nsec = res.tv_nsec };
 }
 void yo_timesleep(yo_time_t until) {
-	struct timespec req = { .tv_sec = until.sec, .tv_nsec = until.nsec };
+	yo_time_t dur = yo_timesub(until, yo_time(YO_CLOCK_MONO));
+	struct timespec req = { .tv_sec = dur.sec, .tv_nsec = dur.nsec };
+	struct timespec rem;
 	while (true) {
-		if (nanosleep(&req, NULL) == 0) break;
-		if (errno == EINTR) continue;
+		if (nanosleep(&req, &rem) == 0) break;
+		if (errno != EINTR) break;
+		req = rem;
 	}
 }
