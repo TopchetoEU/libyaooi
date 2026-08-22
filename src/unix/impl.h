@@ -7,6 +7,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <termios.h>
 
