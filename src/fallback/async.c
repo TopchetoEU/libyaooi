@@ -83,13 +83,26 @@ an implementation of the ev.h interface function.
 #ifndef yoa_write
 	YOI_MKFALLBACK(write, YOI_WRITE_PARAMS)
 #endif
-
 #ifndef yoa_sync
 	YOI_MKFALLBACK(sync, YOI_SYNC_PARAMS)
 #endif
 #ifndef yoa_stat
 	YOI_MKFALLBACK(stat, YOI_STAT_PARAMS)
 #endif
+
+#ifndef yoa_file_symlink
+	YOI_MKFALLBACK(file_symlink, YOI_FILE_SYMLINK_PARAMS)
+#endif
+#ifndef yoa_file_hardlink
+	YOI_MKFALLBACK(file_hardlink, YOI_FILE_HARDLINK_PARAMS)
+#endif
+#ifndef yoa_file_readlink
+	YOI_MKFALLBACK(file_readlink, YOI_FILE_READLINK_PARAMS)
+#endif
+#ifndef yoa_file_remove
+	YOI_MKFALLBACK(file_remove, YOI_FILE_REMOVE_PARAMS)
+#endif
+
 // #ifndef yoa_file_open
 // 	YOI_MKFALLBACK(file_open, YOI_FILE_OPEN_PARAMS)
 // #endif
@@ -99,6 +112,7 @@ an implementation of the ev.h interface function.
 #ifndef yoa_file_write
 	YOI_MKFALLBACK(file_write, YOI_FILE_WRITE_PARAMS)
 #endif
+
 #ifndef yoa_dir_new
 	YOI_MKFALLBACK(dir_new, YOI_DIR_NEW_PARAMS)
 #endif
@@ -125,23 +139,4 @@ an implementation of the ev.h interface function.
 #endif
 #ifndef yoa_sig_wait
 	YOI_MKFALLBACK(sig_wait, YOI_SIG_WAIT_PARAMS)
-#endif
-
-#ifndef yoa_file_symlink
-	YOI_MKFALLBACK(file_symlink, YOI_FILE_SYMLINK_PARAMS)
-#endif
-#ifndef yoa_file_hardlink
-	YOI_MKFALLBACK(file_hardlink, YOI_FILE_HARDLINK_PARAMS)
-#endif
-#ifndef yoa_file_readlink
-	YOI_MKFALLBACK(file_readlink, YOI_FILE_READLINK_PARAMS)
-#endif
-#ifndef yoa_file_chmod
-	YOI_MKFALLBACK(file_chmod, YOI_FILE_CHMOD_PARAMS)
-#endif
-#ifndef yoa_file_chown
-	YOI_MKFALLBACK(file_chown, YOI_FILE_CHOWN_PARAMS)
-#endif
-#ifndef yoa_file_remove
-	YOI_MKFALLBACK(file_remove, YOI_FILE_REMOVE_PARAMS)
 #endif
