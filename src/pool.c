@@ -55,10 +55,12 @@
 				it->req = req;
 				it->worker = worker;
 				it->args = args;
+				yoi_req_begin(req, _yoi_pool_cancelcb);
+
 				yo_cond_broadcast(it->cond);
 				yo_mutex_unlock(it->lock);
 
-				goto begin;
+				return YO_OK;
 			}
 			yo_mutex_unlock(it->lock);
 		}
@@ -76,6 +78,8 @@
 		pool_worker->args = args;
 		pool_worker->next = NULL;
 
+		yoi_req_begin(req, _yoi_pool_cancelcb);
+
 		if (yo_thread_new(pool_worker->thread, yoi_pool_worker_entry, pool_worker) < 0) {
 			yo_cond_free(pool_worker->cond);
 			free(pool_worker);
@@ -84,8 +88,6 @@
 
 		yoi_list_add(pool_worker, pool->worker_head, pool_worker);
 
-	begin:
-		yoi_req_begin(req, _yoi_pool_cancelcb);
 		return YO_OK;
 	}
 
