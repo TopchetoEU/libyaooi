@@ -23,7 +23,7 @@
 	X(ENOMEM, -12, "not enough memory") \
 	X(EACCES, -13, "permission denied") \
 	X(EFAULT, -14, "bad address in system call argument") \
-	X(ENOTBLK, -15, "Block device required") \
+	X(ENOTBLK, -15, "block device required") \
 	X(EBUSY, -16, "resource busy or locked") \
 	X(EEXIST, -17, "file already exists") \
 	X(EXDEV, -18, "cross-device link not permitted") \
@@ -98,7 +98,7 @@
 	X(EAI_MEMORY, -1010, "out of memory") \
 	X(EAI_OVERFLOW, -1012, "argument buffer overflow") \
 	X(EAI_CANCELED, -1101, "request canceled") \
-	X(ECHARSET, -2001, "invalid Unicode character") \
+	X(ECHARSET, -2001, "invalid unicode character") \
 	X(EUNKNOWN, -3000, "unknown OS-specific error") \
 
 typedef enum {
