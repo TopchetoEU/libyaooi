@@ -1,4 +1,4 @@
-override CFLAGS += -Iinc -Wall -Wextra -Wno-unused-function -fPIC
+override CFLAGS += -Iinc -Wall -Wextra -Wpedantic -Wno-unused-function -fPIC
 
 TARGET ?= $(shell uname)
 LIBPREFIX ?= bin/$(TARGET)/lib
