@@ -26,12 +26,12 @@
 #include <yaooi/errno.h>
 #include <yaooi/io.h>
 #include <yaooi/queue.h>
+#include <yaooi/time.h>
 
 #include "./impl.h" // IWYU pragma: export
 
 #include "../fallback/queue.c" // IWYU pragma: export
 #include "../queue.c"
-#include "ev/time.h"
 
 // FIXME: never before run code, shat it out in an evening.
 // Consider windows as unsupported, until I can be bothered to cross-compile luajit
@@ -313,7 +313,7 @@ static yo_code_t yoi_win_conv_errno(int winerr) {
 		case ERROR_CONNECTION_ABORTED: return YO_ECONNABORTED;
 		case ERROR_CONNECTION_REFUSED: return YO_ECONNREFUSED;
 		case ERROR_CRC: return YO_EIO;
-		case ERROR_DYO_NOT_EXIST: return YO_ENOENT;
+		case ERROR_DEV_NOT_EXIST: return YO_ENOENT;
 		case ERROR_DEVICE_DOOR_OPEN: return YO_EIO;
 		case ERROR_DEVICE_IN_USE: return YO_EAGAIN;
 		case ERROR_DEVICE_REQUIRES_CLEANING: return YO_EIO;
@@ -477,8 +477,7 @@ static int yoi_win_conv_addr(yo_addr_t addr, uint16_t port, struct sockaddr_stor
 		res.sin6_family = AF_INET6;
 		res.sin6_port = htons(port);
 		for (size_t i = 0; i < 8; i++) {
-			uint16_t netord = htons(addr.v6[i]);
-			memcpy((void*)&res.sin6_addr + i * 2, &netord, 2);
+			res.sin6_addr.s6_words[i] = htons(addr.v6[i]);
 		}
 		memcpy(pres, &res, sizeof res);
 		return sizeof res;
@@ -922,7 +921,7 @@ yo_code_t yo_socket_accept(yo_fd_t server, yo_fd_t *pres, yo_addr_t *paddr, uint
 	yo_fd_t res = malloc(sizeof *res);
 	if (!res) return YO_ENOMEM;
 
-	struct sockaddr_storage addr = {};
+	struct sockaddr_storage addr = { 0 };
 	socklen_t addr_len = sizeof addr;
 
 	SOCKET client = accept((SOCKET)(size_t)server, (void*)&addr, &addr_len);
@@ -1283,7 +1282,7 @@ yo_enviter_t yo_enviter_new() {
 	res->data = res->curr = GetEnvironmentStringsW();
 	if (!res->data) {
 		free(res);
-		return yoi_win_conv_errno(GetLastError());
+		return NULL;
 	}
 
 	return res;

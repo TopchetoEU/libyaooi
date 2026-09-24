@@ -27,13 +27,10 @@ struct yo_fd {
 		char *at;
 	};
 };
-struct yo_dir {
-};
-struct yo_proc {
-};
+struct yo_dir { char _; };
+struct yo_proc { char _; };
 struct yo_enviter {
 	char **enviter;
 };
 
-typedef struct {
-} yoi_req_ioq_t;
+typedef struct { char _; } yoi_req_ioq_t;

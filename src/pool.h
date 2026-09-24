@@ -31,10 +31,8 @@
 		#define yoi_list_pool_worker_next(node) (node)->next
 	} yoi_pool_s, *yoi_pool_t;
 #else
-	typedef struct {
-	} yoi_req_task_t;
-	typedef struct yo_pool {
-	} yoi_pool_s, *yoi_pool_t;
+	typedef struct { char _; } yoi_req_task_t;
+	typedef struct yo_pool { char _; } yoi_pool_s, *yoi_pool_t;
 #endif
 
 static void yoi_pool_init(yoi_pool_t pool);

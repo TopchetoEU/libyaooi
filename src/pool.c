@@ -19,7 +19,7 @@
 		yo_thread_cancel(req->running.task.worker->thread);
 	}
 
-	static void yoi_pool_worker_entry(void *pargs) {
+	static yo_thread_ret_t yoi_pool_worker_entry(void *pargs) {
 		yoi_pool_worker_t worker = (yoi_pool_worker_t)pargs;
 
 		yo_mutex_lock(worker->lock);
@@ -45,6 +45,7 @@
 		}
 
 		yo_mutex_unlock(worker->lock);
+		yo_thread_exit(0);
 	}
 
 	yo_code_t yo_req_exec(yo_req_t req, yo_worker_t worker, void *args) {

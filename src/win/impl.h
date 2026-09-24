@@ -38,8 +38,7 @@ struct yo_enviter {
 	char *lastalloc;
 };
 
-typedef struct {
-} yoi_req_ioq_t;
+typedef struct { char _; } yoi_req_ioq_t;
 
 static void yoi_win_mkhnd(yo_fd_t res, HANDLE hnd);
 static void yoi_win_mksock(yo_fd_t res, SOCKET sock);

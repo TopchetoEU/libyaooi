@@ -11,6 +11,8 @@
 typedef struct {
 	#ifdef YO_USE_MULTITHREAD
 		yo_cond_t cond;
+	#else
+		char _;
 	#endif
 } yoi_queue_impl_t;
 

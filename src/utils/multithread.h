@@ -16,12 +16,14 @@
 	#include <windows.h>
 
 	typedef HANDLE yo_thread_t[1];
+	typedef DWORD yo_thread_ret_t;
 	typedef CRITICAL_SECTION yo_mutex_t[1];
 	typedef CONDITION_VARIABLE yo_cond_t[1];
 
-	#define yo_thread_new(th, entry, args) (CreateThread(NULL, 0, (void*)(entry), (args), 0, NULL) ? 0 : -1)
+	#define yo_thread_new(th, entry, args) (CreateThread(NULL, 0, (entry), (args), 0, NULL) ? 0 : -1)
 	#define yo_thread_free_join(th) (WaitForSingleObject(th, INFINITE) ? 0 : -1)
 	#define yo_thread_cancel(th) (CancelSynchronousIo(th) ? 0 : -1)
+	#define yo_thread_exit(code) return (DWORD)(code);
 
 	#define yo_mutex_new(mut) (void)InitializeCriticalSection(mut)
 	#define yo_mutex_free(mut) (void)DeleteCriticalSection(mut)
@@ -45,6 +47,7 @@
 	#include <pthread.h>
 
 	typedef pthread_t yo_thread_t[1];
+	typedef void yo_thread_ret_t;
 	typedef pthread_mutex_t yo_mutex_t[1];
 	typedef pthread_cond_t yo_cond_t[1];
 
@@ -86,6 +89,7 @@
 		return pthread_create(th, (const pthread_attr_t*)NULL, yo_thread_entry, args);
 	}
 	#define yo_thread_cancel(th) (void)pthread_kill(*(th), SIGPWR)
+	#define yo_thread_exit(code) (void)(code);
 
 	static inline void *yo_thread_free_join(yo_thread_t th) {
 		void *ret;
@@ -118,7 +122,7 @@
 #elif defined YO_USE_MULTITHREAD
 	#error Multithreading enabled on non-multithreaded platform
 #else
-	typedef struct {} yo_mutex_t[1];
+	typedef char yo_mutex_t[1];
 
 	#define yo_mutex_new(mut)
 	#define yo_mutex_free(mut)

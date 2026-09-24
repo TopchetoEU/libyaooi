@@ -28,6 +28,8 @@ endif
 
 ifeq ($(DEBUG),yes)
 	override CFLAGS += -g
+else
+	override CFLAGS += -O3
 endif
 
 .PHONY: sources flags all clean
