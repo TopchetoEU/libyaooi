@@ -379,8 +379,7 @@ static int yoi_unix_conv_addr(yo_addr_t addr, uint16_t port, struct sockaddr_sto
 		res.sin6_family = AF_INET6;
 		res.sin6_port = htons(port);
 		for (size_t i = 0; i < 8; i++) {
-			uint16_t netord = htons(addr.v6[i]);
-			memcpy((void*)&res.sin6_addr + i * 2, &netord, 2);
+			res.sin6_addr.s6_addr16[i] = htons(addr.v6[i]);
 		}
 		memcpy(pres, &res, sizeof res);
 		return sizeof res;
@@ -731,7 +730,7 @@ yo_code_t yo_socket_accept(yo_fd_t server, yo_fd_t *pres, yo_addr_t *paddr, uint
 	yo_fd_t client = malloc(sizeof *client);
 	if (!client) return YO_ENOMEM;
 
-	struct sockaddr_storage addr = {};
+	struct sockaddr_storage addr = { 0 };
 	socklen_t addr_len = sizeof addr;
 
 	int res = accept(server->fd, (void*)&addr, &addr_len);
