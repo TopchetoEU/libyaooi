@@ -1,7 +1,9 @@
 override CFLAGS += -Iinc -Wall -Wextra -Wpedantic -Wno-unused-function -fPIC
 
+PREFIX ?= /usr/local
+
 TARGET ?= $(shell uname)
-LIBPREFIX ?= bin/$(TARGET)/lib
+LIBPREFIX ?= dst/$(TARGET)/lib
 
 CC ?= cc
 AR ?= ar
@@ -11,7 +13,7 @@ TARGET_AR := $(CROSS_COMPILE)$(AR)
 
 ifeq ($(TARGET),Windows)
 	LDFLAGS += -lws2_32
-	LIBPREFIX := bin/Windows/
+	LIBPREFIX := dst/Windows/
 endif
 
 NAME ?= yaooi
@@ -36,20 +38,23 @@ endif
 
 all: $(SHARED) $(STATIC)
 clean:
-	rm -rf bin
+	rm -rf dst
+
+install:
+	cp $(SHARED) $(PREFIX)/lib/
 
 sources:
 	echo $(SRCS)
 flags:
 	echo $(CFLAGS)
 
-$(SHARED): $(OBJECT) | bin/$(TARGET)/
+$(SHARED): $(OBJECT) | dst/$(TARGET)/
 	$(TARGET_CC) $(CFLAGS) -shared $^ -o $@ $(LDFLAGS)
 
-$(STATIC): $(OBJECT) | bin/$(TARGET)/
+$(STATIC): $(OBJECT) | dst/$(TARGET)/
 	$(TARGET_AR) rcs $@ $^
 
-$(OBJECT): src/yaooi.c | bin/$(TARGET)/
+$(OBJECT): src/yaooi.c | dst/$(TARGET)/
 	$(TARGET_CC) $(CFLAGS) -c $< -o $(OBJECT) -MMD
 
 %/:
