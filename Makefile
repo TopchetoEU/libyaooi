@@ -40,7 +40,7 @@ all: $(SHARED) $(STATIC)
 clean:
 	rm -rf dst
 
-install:
+install: all
 	mkdir -p $(PREFIX)/lib
 	cp $(SHARED) $(PREFIX)/lib/
 
