@@ -102,7 +102,7 @@ typedef struct yo_queue *yo_queue_t;
 // A generic request in the queue
 typedef struct yo_req *yo_req_t;
 
-yo_queue_t yo_queue_new();
+yo_queue_t yo_queue_new(void);
 // Cancels all requests and frees all associated resources
 void yo_queue_free(yo_queue_t queue);
 // Gets the next completed request in the queue, or blocks until one is available
@@ -330,7 +330,7 @@ yo_code_t yo_env_set(const char *name, const char *val);
 
 typedef struct yo_enviter *yo_enviter_t;
 // Initializes an iterator of the env variables
-yo_enviter_t yo_enviter_new();
+yo_enviter_t yo_enviter_new(void);
 // Gets the next env variable from the iterator
 yo_code_t yo_enviter_next(yo_enviter_t iter, const char **pres);
 void yo_enviter_close(yo_enviter_t iter);

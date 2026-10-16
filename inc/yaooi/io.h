@@ -219,7 +219,7 @@ yo_code_t yo_env_set(const char *name, const char *val);
 
 typedef struct yo_enviter *yo_enviter_t;
 // Initializes an iterator of the env variables
-yo_enviter_t yo_enviter_new();
+yo_enviter_t yo_enviter_new(void);
 // Gets the next env variable from the iterator
 yo_code_t yo_enviter_next(yo_enviter_t iter, const char **pres);
 void yo_enviter_close(yo_enviter_t iter);

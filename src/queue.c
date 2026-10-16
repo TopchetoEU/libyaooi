@@ -53,7 +53,7 @@ static yo_req_t yoi_queue_pop(yo_queue_t queue, yo_code_t *pcode) {
 	return req;
 }
 
-yo_queue_t yo_queue_new() {
+yo_queue_t yo_queue_new(void) {
 	yo_queue_t queue = malloc(sizeof *queue);
 	if (!queue) return NULL;
 

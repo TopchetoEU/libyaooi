@@ -1,4 +1,4 @@
-override CFLAGS += -Iinc -Wall -Wextra -Wpedantic -Wno-unused-function -fPIC
+override CFLAGS += -Iinc -std=c11 -Wall -Wextra -Wpedantic -Wno-unused-function -fPIC
 
 PREFIX ?= /usr/local
 

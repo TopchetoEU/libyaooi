@@ -130,7 +130,7 @@ static int _yoi_unix_mkstd(bool in, int *pparent, int *pchild, yo_fd_t *pres) {
 	return 0;
 }
 
-static void _yoi_sig_init() {
+static void _yoi_sig_init(void) {
 	// TODO: do with CAS
 	if (!_core_sig_init) {
 		_core_sig_init = true;
@@ -1212,7 +1212,7 @@ yo_code_t yo_env_set(const char *name, const char *val) {
 	return YO_OK;
 }
 
-yo_enviter_t yo_enviter_new() {
+yo_enviter_t yo_enviter_new(void) {
 	yo_enviter_t res = malloc(sizeof *res);
 	if (!res) return NULL;
 

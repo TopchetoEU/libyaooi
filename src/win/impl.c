@@ -40,7 +40,7 @@
 
 static bool _yoi_win_initialized = false;
 
-static void _yoi_win_init() {
+static void _yoi_win_init(void) {
 	if (_yoi_win_initialized) return;
 	_yoi_win_initialized = true;
 
@@ -1275,7 +1275,7 @@ yo_code_t yo_env_set(const char *name, const char *val) {
 	return YO_OK;
 }
 
-yo_enviter_t yo_enviter_new() {
+yo_enviter_t yo_enviter_new(void) {
 	yo_enviter_t res = malloc(sizeof *res);
 	if (!res) return NULL;
 

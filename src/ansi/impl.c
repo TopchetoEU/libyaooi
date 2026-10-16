@@ -545,7 +545,7 @@ yo_code_t yo_nextenv(void **pit, const char **ppair) {
 	return YO_OK;
 }
 
-yo_enviter_t yo_enviter_new() {
+yo_enviter_t yo_enviter_new(void) {
 	yo_enviter_t res = malloc(sizeof *res);
 	if (!res) return NULL;
 

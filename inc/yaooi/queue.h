@@ -16,7 +16,7 @@ typedef struct yo_queue *yo_queue_t;
 // A generic request in the queue
 typedef struct yo_req *yo_req_t;
 
-yo_queue_t yo_queue_new();
+yo_queue_t yo_queue_new(void);
 // Cancels all requests and frees all associated resources
 void yo_queue_free(yo_queue_t queue);
 // Gets the next completed request in the queue, or blocks until one is available
