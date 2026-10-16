@@ -41,6 +41,7 @@ clean:
 	rm -rf dst
 
 install:
+	mkdir -p $(PREFIX)/lib
 	cp $(SHARED) $(PREFIX)/lib/
 
 sources:
