@@ -449,6 +449,7 @@ yo_code_t yo_read(yo_fd_t fd, char *buff, size_t *pn) {
 
 	ssize_t n = read(fd->fd, buff, *pn);
 	if (n < 0) return yoi_unix_conv_errno(errno);
+	if (n == 0) return YO_EOF;
 
 	*pn = n;
 	return YO_OK;
@@ -458,6 +459,7 @@ yo_code_t yo_write(yo_fd_t fd, char *buff, size_t *pn) {
 
 	ssize_t n = write(fd->fd, buff, *pn);
 	if (n < 0) return yoi_unix_conv_errno(errno);
+	if (n == 0) return YO_EOF;
 
 	*pn = n;
 	return YO_OK;
@@ -594,6 +596,9 @@ yo_code_t yo_file_read(yo_fd_t fd, char *buff, size_t *n, size_t offset) {
 
 	ssize_t res = pread(fd->fd, buff, *n, offset);
 	if (res < 0) return yoi_unix_conv_errno(errno);
+	// TODO: handle *n == 0 properly (YO_EOF must be thrown if the stream has ended)
+	if (*n != 0 && res == 0) return YO_EOF;
+
 	*n = res;
 	return YO_OK;
 }
@@ -602,6 +607,9 @@ yo_code_t yo_file_write(yo_fd_t fd, char *buff, size_t *n, size_t offset) {
 
 	ssize_t res = pwrite(fd->fd, buff, *n, offset);
 	if (res < 0) return yoi_unix_conv_errno(errno);
+	// TODO: handle *n == 0 properly (YO_EOF must be thrown if the stream has ended)
+	if (*n != 0 && res == 0) return YO_EOF;
+
 	*n = res;
 	return YO_OK;
 }

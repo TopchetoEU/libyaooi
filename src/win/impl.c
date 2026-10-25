@@ -531,24 +531,21 @@ yo_code_t yo_read(yo_fd_t fd, char *buff, size_t *pn) {
 			DWORD out_n;
 
 			if (!ReadFile(fd->hnd, (void*)buff, *pn, &out_n, NULL)) {
-				if (GetLastError() == ERROR_HANDLE_EOF || GetLastError() == ERROR_BROKEN_PIPE) {
-					*pn = 0;
-					return YO_OK;
-				}
-
 				return yoi_win_conv_errno(GetLastError());
 			}
+
 			*pn = out_n;
 			return YO_OK;
 		}
 		case YOI_WIN_SOCK: {
 			int res = recv(fd->sock, (void*)buff, *pn, 0);
 			if (res < 0) return yoi_win_conv_errno(WSAGetLastError());
+			if (res == 0) return YO_EOF;
 
 			*pn = res;
 			return YO_OK;
 		}
-		default: return YO_EBADF;
+		default: return YO_EBADFD;
 	}
 }
 yo_code_t yo_write(yo_fd_t fd, char *buff, size_t *pn) {
@@ -557,19 +554,16 @@ yo_code_t yo_write(yo_fd_t fd, char *buff, size_t *pn) {
 			DWORD out_n;
 
 			if (!WriteFile(fd->hnd, (void*)buff, *pn, &out_n, NULL)) {
-				if (GetLastError() == ERROR_HANDLE_EOF || GetLastError() == ERROR_BROKEN_PIPE) {
-					*pn = 0;
-					return YO_OK;
-				}
-
 				return yoi_win_conv_errno(GetLastError());
 			}
+
 			*pn = out_n;
 			return YO_OK;
 		}
 		case YOI_WIN_SOCK: {
 			int res = send(fd->sock, (void*)buff, *pn, 0);
 			if (res < 0) return yoi_win_conv_errno(WSAGetLastError());
+			if (res == 0) return YO_EOF;
 
 			*pn = res;
 			return YO_OK;
@@ -781,13 +775,9 @@ yo_code_t yo_file_read(yo_fd_t fd, char *buff, size_t *n, size_t offset) {
 	OVERLAPPED overlapped = { .Pointer = (void*)offset };
 
 	if (!ReadFile(fd->hnd, (void*)buff, *n, &out_n, &overlapped)) {
-		if (GetLastError() == ERROR_HANDLE_EOF || GetLastError() == ERROR_BROKEN_PIPE) {
-			*n = 0;
-			return YO_OK;
-		}
-
 		return yoi_win_conv_errno(GetLastError());
 	}
+
 	*n = out_n;
 	return YO_OK;
 }
@@ -798,13 +788,9 @@ yo_code_t yo_file_write(yo_fd_t fd, char *buff, size_t *n, size_t offset) {
 	OVERLAPPED overlapped = { .Pointer = (void*)offset };
 
 	if (!WriteFile(fd->hnd, buff, *n, &out_n, &overlapped)) {
-		if (GetLastError() == ERROR_HANDLE_EOF) {
-			*n = 0;
-			return YO_OK;
-		}
-
 		return yoi_win_conv_errno(GetLastError());
 	}
+
 	*n = out_n;
 	return YO_OK;
 }

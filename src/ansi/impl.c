@@ -214,6 +214,7 @@ yo_code_t yo_read(yo_fd_t fd, char *buff, size_t *pn) {
 	clearerr(fd->file);
 	size_t n = fread(buff, *pn, 1, fd->file);
 	if (ferror(fd->file)) return YO_EIO;
+	if (feof(fd->file)) return YO_EOF;
 
 	*pn = n;
 	return YO_OK;
@@ -224,6 +225,7 @@ yo_code_t yo_write(yo_fd_t fd, char *buff, size_t *pn) {
 	clearerr((FILE*)fd);
 	size_t n = fwrite(buff, *pn, 1, (FILE*)fd);
 	if (ferror(fd->file)) return YO_EIO;
+	if (feof(fd->file)) return YO_EOF;
 
 	*pn = n;
 	return YO_OK;
@@ -359,6 +361,7 @@ yo_code_t yo_file_read(yo_fd_t fd, char *buff, size_t *pn, size_t offset) {
 
 	size_t n = fread(buff, 1, *pn, fd->file);
 	if (ferror(fd->file)) return YO_EIO;
+	if (feof(fd->file)) return YO_EOF;
 
 	if (fseek(fd->file, curr, SEEK_SET) < 0) return YO_EBADOP;
 
@@ -373,6 +376,7 @@ yo_code_t yo_file_write(yo_fd_t fd, char *buff, size_t *pn, size_t offset) {
 
 	size_t n = fwrite(buff, 1, *pn, fd->file);
 	if (ferror(fd->file)) return YO_EIO;
+	if (feof(fd->file)) return YO_EOF;
 
 	if (fseek(fd->file, curr, SEEK_SET) < 0) return YO_EBADOP;
 
