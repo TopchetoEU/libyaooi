@@ -1,6 +1,7 @@
 // libyaooi, Copyright (C) 2025-2026 topchetoeu, see LICENSE for full LGPL text
 
 #pragma once
+#define _XOPEN_SOURCE 700
 
 #include <stdint.h>
 #include <signal.h> // IWYU pragma: keep
@@ -45,6 +46,7 @@
 	#define yo_cond_signal(cond) (void)WakeConditionVariable(cond)
 #elif defined YO_USE_MULTITHREAD && defined YO_USE_UNIX
 	#include <pthread.h>
+	#include <signal.h>
 
 	typedef pthread_t yo_thread_t[1];
 	typedef void yo_thread_ret_t;

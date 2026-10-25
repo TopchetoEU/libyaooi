@@ -1,6 +1,7 @@
 // libyaooi, Copyright (C) 2025-2026 topchetoeu, see LICENSE for full LGPL text
 
 #pragma once
+#define _XOPEN_SOURCE 700
 
 #include <assert.h>
 #include <err.h>

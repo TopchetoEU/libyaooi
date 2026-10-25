@@ -2,7 +2,8 @@
 
 #pragma once
 
-#define _GNU_SOURCE
+#define _XOPEN_SOURCE 700
+
 #include <fcntl.h>
 #include <signal.h>
 #include <stdint.h>
@@ -180,7 +181,7 @@ static int yoi_unix_conv_open_flags(yo_open_flags_t flags) {
 
 	if (flags & YO_OPEN_STAT) {
 		#ifdef YO_USE_LINUX
-			res |= O_PATH;
+			res |= 010000000 /* O_PATH */;
 		#endif
 	}
 	else {
@@ -382,7 +383,7 @@ static int yoi_unix_conv_addr(yo_addr_t addr, uint16_t port, struct sockaddr_sto
 		res.sin6_family = AF_INET6;
 		res.sin6_port = htons(port);
 		for (size_t i = 0; i < 8; i++) {
-			res.sin6_addr.s6_addr16[i] = htons(addr.v6[i]);
+			((uint16_t*)&res.sin6_addr)[i] = htons(addr.v6[i]);
 		}
 		memcpy(pres, &res, sizeof res);
 		return sizeof res;
@@ -779,7 +780,7 @@ yo_code_t yo_dns_getaddrinfo(yo_addrinfo_t *pres, const char *name, yo_addrinfo_
 
 	switch (code) {
 		case 0: break;
-		#ifdef YO_USE_LINUX
+		#ifdef EAI_NODATA
 			case EAI_NODATA: break;
 		#endif
 		case EAI_NONAME: break;
