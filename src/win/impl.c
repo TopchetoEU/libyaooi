@@ -290,22 +290,22 @@ static yo_code_t yoi_win_conv_errno(int winerr) {
 		case ERROR_ADDRESS_ALREADY_ASSOCIATED:  return YO_EADDRINUSE;
 		case ERROR_ALREADY_EXISTS: return YO_EEXIST;
 		case ERROR_BAD_DEVICE: return YO_ENODEV;
-		case ERROR_BAD_EXE_FORMAT: return YO_ENOEXEC;
+		case ERROR_BAD_EXE_FORMAT: return YO_EBADEXE;
 		case ERROR_BAD_NET_NAME: return YO_ENOENT;
-		case ERROR_BAD_NET_RESP: return YO_ENOSYS;
+		case ERROR_BAD_NET_RESP: return YO_ENORESOURCE;
 		case ERROR_BAD_NETPATH: return YO_ENOENT;
 		case ERROR_BAD_PATHNAME: return YO_ENOENT;
-		case ERROR_BAD_PIPE: return YO_EPIPE;
+		case ERROR_BAD_PIPE: return YO_ENOENT;
 		case ERROR_BAD_UNIT: return YO_ENODEV;
 		case ERROR_BAD_USERNAME: return YO_EINVAL;
 		case ERROR_BEGINNING_OF_MEDIA: return YO_EIO;
 		// case ERROR_BROKEN_PIPE: return YO_EOF;
-		case ERROR_BROKEN_PIPE: return YO_EPIPE;
+		case ERROR_BROKEN_PIPE: return YO_EOF;
 		case ERROR_BUFFER_OVERFLOW: return YO_EFAULT;
 		case ERROR_BUS_RESET: return YO_EIO;
 		case ERROR_BUSY: return YO_EBUSY;
-		case ERROR_CALL_NOT_IMPLEMENTED: return YO_ENOSYS;
-		case ERROR_CANCELLED: return YO_EINTR;
+		case ERROR_CALL_NOT_IMPLEMENTED: return YO_ENORESOURCE;
+		case ERROR_CANCELLED: return YO_ECANCELED;
 		case ERROR_CANNOT_MAKE: return YO_EPERM;
 		case ERROR_CANT_RESOLVE_FILENAME: return YO_ELOOP;
 		case ERROR_CHILD_NOT_COMPLETE: return YO_EBUSY;
@@ -320,39 +320,39 @@ static yo_code_t yoi_win_conv_errno(int winerr) {
 		case ERROR_DIR_NOT_EMPTY: return YO_ENOTEMPTY;
 		case ERROR_DIRECTORY: return YO_ENOTDIR;
 		case ERROR_DISK_CORRUPT: return YO_EIO;
-		case ERROR_DISK_FULL: return YO_ENOSPC;
+		case ERROR_DISK_FULL: return YO_ENORESOURCE;
 		case ERROR_DS_GENERIC_ERROR: return YO_EIO;
-		case ERROR_DUP_NAME: return YO_ENOTUNIQ;
+		case ERROR_DUP_NAME: return YO_EEXIST;
 		case ERROR_EA_LIST_INCONSISTENT: return YO_EINVAL;
-		case ERROR_EA_TABLE_FULL: return YO_ENOSPC;
-		case ERROR_EAS_DIDNT_FIT: return YO_ENOSPC;
+		case ERROR_EA_TABLE_FULL: return YO_ENORESOURCE;
+		case ERROR_EAS_DIDNT_FIT: return YO_ENORESOURCE;
 		case ERROR_EAS_NOT_SUPPORTED: return YO_ENOTSUP;
-		case ERROR_END_OF_MEDIA: return YO_ENOSPC;
+		case ERROR_END_OF_MEDIA: return YO_ENORESOURCE;
 		case ERROR_EOM_OVERFLOW: return YO_EIO;
-		case ERROR_EXE_MACHINE_TYPE_MISMATCH: return YO_ENOEXEC;
-		case ERROR_EXE_MARKED_INVALID: return YO_ENOEXEC;
+		case ERROR_EXE_MACHINE_TYPE_MISMATCH: return YO_EBADEXE;
+		case ERROR_EXE_MARKED_INVALID: return YO_EBADEXE;
 		case ERROR_FILE_CORRUPT: return YO_EEXIST;
 		case ERROR_FILE_EXISTS: return YO_EEXIST;
-		case ERROR_FILE_INVALID: return YO_ENXIO;
+		case ERROR_FILE_INVALID: return YO_ENOENT;
 		case ERROR_FILE_NOT_FOUND: return YO_ENOENT;
 		case ERROR_FILEMARK_DETECTED: return YO_EIO;
-		case ERROR_FILENAME_EXCED_RANGE: return YO_ENAMETOOLONG;
+		case ERROR_FILENAME_EXCED_RANGE: return YO_ERANGE;
 		case ERROR_GEN_FAILURE: return YO_EIO;
-		case ERROR_HANDLE_DISK_FULL: return YO_ENOSPC;
-		case ERROR_HANDLE_EOF: return YO_ENODATA;
-		case ERROR_HOST_UNREACHABLE: return YO_EHOSTUNREACH;
-		case ERROR_INSUFFICIENT_BUFFER: return YO_EINVAL;
+		case ERROR_HANDLE_DISK_FULL: return YO_ENORESOURCE;
+		case ERROR_HANDLE_EOF: return YO_EOF;
+		case ERROR_HOST_UNREACHABLE: return YO_EHOSTDOWN;
+		case ERROR_INSUFFICIENT_BUFFER: return YO_ERANGE;
 		case ERROR_INVALID_ADDRESS: return YO_EINVAL;
-		case ERROR_INVALID_AT_INTERRUPT_TIME: return YO_EINTR;
-		case ERROR_INVALID_BLOCK_LENGTH: return YO_EIO;
+		case ERROR_INVALID_AT_INTERRUPT_TIME: return YO_EINVAL;
+		case ERROR_INVALID_BLOCK_LENGTH: return YO_ERANGE;
 		case ERROR_INVALID_DATA: return YO_EINVAL;
 		case ERROR_INVALID_DRIVE: return YO_ENODEV;
 		case ERROR_INVALID_EA_NAME: return YO_EINVAL;
-		case ERROR_INVALID_EXE_SIGNATURE: return YO_ENOEXEC;
-		case ERROR_INVALID_FLAGS: return YO_EBADF;
+		case ERROR_INVALID_EXE_SIGNATURE: return YO_EBADEXE;
+		case ERROR_INVALID_FLAGS: return YO_EINVAL;
 		case ERROR_INVALID_FUNCTION: return YO_EISDIR;
 		// case ERROR_INVALID_FUNCTION: return YO_EINVAL;
-		case ERROR_INVALID_HANDLE: return YO_EBADF;
+		case ERROR_INVALID_HANDLE: return YO_EBADFD;
 		case ERROR_INVALID_NAME: return YO_ENOENT;
 		case ERROR_INVALID_PARAMETER: return YO_EINVAL;
 		case ERROR_INVALID_REPARSE_DATA: return YO_ENOENT;
@@ -360,27 +360,27 @@ static yo_code_t yoi_win_conv_errno(int winerr) {
 		case ERROR_IO_DEVICE: return YO_EIO;
 		case ERROR_IO_INCOMPLETE: return YO_EAGAIN;
 		case ERROR_IO_PENDING: return YO_EAGAIN;
-		case ERROR_IOPL_NOT_ENABLED: return YO_ENOEXEC;
+		case ERROR_IOPL_NOT_ENABLED: return YO_EBADEXE;
 		case ERROR_LOCK_VIOLATION: return YO_EBUSY;
 		case ERROR_MAX_THRDS_REACHED: return YO_EAGAIN;
 		case ERROR_META_EXPANSION_TOO_LONG: return YO_EINVAL;
 		case ERROR_MOD_NOT_FOUND: return YO_ENOENT;
-		case ERROR_MORE_DATA: return YO_EMSGSIZE;
+		case ERROR_MORE_DATA: return YO_ERANGE;
 		case ERROR_NEGATIVE_SEEK: return YO_EINVAL;
 		case ERROR_NETNAME_DELETED: return YO_ECONNRESET;
-		case ERROR_NETWORK_UNREACHABLE: return YO_ENETUNREACH;
+		case ERROR_NETWORK_UNREACHABLE: return YO_ENETDOWN;
 		case ERROR_NO_DATA_DETECTED: return YO_EIO;
-		case ERROR_NO_DATA: return YO_EPIPE;
+		case ERROR_NO_DATA: return YO_EOF;
 		case ERROR_NO_MEDIA_IN_DRIVE: return YO_ENOMEDIUM;
 		case ERROR_NO_MORE_FILES: return YO_ENOENT;
 		case ERROR_NO_MORE_ITEMS: return YO_ENOENT;
-		case ERROR_NO_MORE_SEARCH_HANDLES: return YO_ENFILE;
+		case ERROR_NO_MORE_SEARCH_HANDLES: return YO_ENOENT;
 		case ERROR_NO_PROC_SLOTS: return YO_EAGAIN;
 		case ERROR_NO_SIGNAL_SENT: return YO_EIO;
 		case ERROR_NO_SYSTEM_RESOURCES: return YO_EFBIG;
 		case ERROR_NO_TOKEN: return YO_EINVAL;
-		case ERROR_NO_UNICODE_TRANSLATION: return YO_ECHARSET;
-		case ERROR_NOACCESS: return YO_EACCES;
+		case ERROR_NO_UNICODE_TRANSLATION: return YO_EUTF;
+		case ERROR_NOACCESS: return YO_EPERM;
 		case ERROR_NONE_MAPPED: return YO_EINVAL;
 		case ERROR_NONPAGED_SYSTEM_RESOURCES: return YO_EAGAIN;
 		case ERROR_NOT_CONNECTED: return YO_ENOTCONN;
@@ -399,61 +399,61 @@ static yo_code_t yoi_win_conv_errno(int winerr) {
 		case ERROR_PATH_NOT_FOUND: return YO_ENOENT;
 		case ERROR_PIPE_BUSY: return YO_EBUSY;
 		case ERROR_PIPE_CONNECTED: return YO_EBUSY;
-		case ERROR_PIPE_LISTENING: return YO_ECOMM;
-		case ERROR_PIPE_NOT_CONNECTED: return YO_EPIPE;
-		case ERROR_POSSIBLE_DEADLOCK: return YO_EDEADLK;
+		case ERROR_PIPE_LISTENING: return YO_EALREADY;
+		case ERROR_PIPE_NOT_CONNECTED: return YO_EBADOP;
+		case ERROR_POSSIBLE_DEADLOCK: return YO_EIO;
 		case ERROR_PRIVILEGE_NOT_HELD: return YO_EPERM;
-		case ERROR_PROC_NOT_FOUND: return YO_ESRCH;
+		case ERROR_PROC_NOT_FOUND: return YO_ENOENT;
 		case ERROR_PROCESS_ABORTED: return YO_EFAULT;
 		case ERROR_REM_NOT_LIST: return YO_ENOENT;
 		case ERROR_SECTOR_NOT_FOUND: return YO_EINVAL;
-		case ERROR_SEEK: return YO_ESPIPE;
-		case ERROR_SEM_TIMEOUT: return YO_ETIMEDOUT;
-		case ERROR_SERVICE_REQUEST_TIMEOUT: return YO_ETIMEDOUT;
+		case ERROR_SEEK: return YO_EBADOP;
+		case ERROR_SEM_TIMEOUT: return YO_ETIMEOUT;
+		case ERROR_SERVICE_REQUEST_TIMEOUT: return YO_ETIMEOUT;
 		case ERROR_SETMARK_DETECTED: return YO_EIO;
-		case ERROR_SHARING_BUFFER_EXCEEDED: return YO_ENOLCK;
+		case ERROR_SHARING_BUFFER_EXCEEDED: return YO_ENORESOURCE;
 		case ERROR_SHARING_VIOLATION: return YO_EBUSY;
 		case ERROR_SIGNAL_PENDING: return YO_EBUSY;
 		case ERROR_SIGNAL_REFUSED: return YO_EIO;
-		case ERROR_SXS_CANT_GEN_ACTCTX: return YO_ELIBBAD;
+		case ERROR_SXS_CANT_GEN_ACTCTX: return YO_EBADEXE;
 		case ERROR_SYMLINK_NOT_SUPPORTED: return YO_EINVAL;
 		case ERROR_THREAD_1_INACTIVE: return YO_EINVAL;
 		case ERROR_TIMEOUT: return YO_EBUSY;
-		case ERROR_TOO_MANY_LINKS: return YO_EMLINK;
-		case ERROR_TOO_MANY_OPEN_FILES: return YO_EMFILE;
+		case ERROR_TOO_MANY_LINKS: return YO_ENORESOURCE;
+		case ERROR_TOO_MANY_OPEN_FILES: return YO_ENORESOURCE;
 		case ERROR_UNEXP_NET_ERR: return YO_EIO;
-		case ERROR_WAIT_NO_CHILDREN: return YO_ECHILD;
+		case ERROR_WAIT_NO_CHILDREN: return YO_EIO;
 		case ERROR_WORKING_SET_QUOTA: return YO_EAGAIN;
 		case ERROR_WRITE_PROTECT: return YO_EROFS;
-		case ERROR_RESOURCE_DATA_NOT_FOUND: return YO_ENOEXEC;
-		case ERROR_RESOURCE_TYPE_NOT_FOUND: return YO_ENOEXEC;
-		case ERROR_RESOURCE_NAME_NOT_FOUND: return YO_ENOEXEC;
-		case ERROR_RESOURCE_LANG_NOT_FOUND: return YO_ENOEXEC;
+		case ERROR_RESOURCE_DATA_NOT_FOUND: return YO_EINVAL;
+		case ERROR_RESOURCE_TYPE_NOT_FOUND: return YO_EINVAL;
+		case ERROR_RESOURCE_NAME_NOT_FOUND: return YO_EINVAL;
+		case ERROR_RESOURCE_LANG_NOT_FOUND: return YO_EINVAL;
 
-		case WSAEACCES: return YO_EACCES;
+		case WSAEACCES: return YO_EPERM;
 		case WSAEADDRINUSE: return YO_EADDRINUSE;
 		case WSAEADDRNOTAVAIL: return YO_EADDRNOTAVAIL;
-		case WSAEAFNOSUPPORT: return YO_EAFNOSUPPORT;
+		case WSAEAFNOSUPPORT: return YO_ENOTSUP;
 		case WSAEALREADY: return YO_EALREADY;
 		case WSAECONNABORTED: return YO_ECONNABORTED;
 		case WSAECONNREFUSED: return YO_ECONNREFUSED;
 		case WSAECONNRESET: return YO_ECONNRESET;
 		case WSAEFAULT: return YO_EFAULT;
-		case WSAEHOSTUNREACH: return YO_EHOSTUNREACH;
-		case WSAEINTR: return YO_EINTR;
+		case WSAEHOSTUNREACH: return YO_EHOSTDOWN;
+		case WSAEINTR: return YO_ECANCELED;
 		case WSAEINVAL: return YO_EINVAL;
-		case WSAEISCONN: return YO_EISCONN;
-		case WSAEMFILE: return YO_EMFILE;
-		case WSAEMSGSIZE: return YO_EMSGSIZE;
-		case WSAENETUNREACH: return YO_ENETUNREACH;
-		case WSAENOBUFS: return YO_ENOBUFS;
-		case WSAENOTCONN: return YO_ENOTCONN;
+		case WSAEISCONN: return YO_EALREADY;
+		case WSAEMFILE: return YO_ENORESOURCE;
+		case WSAEMSGSIZE: return YO_ERANGE;
+		case WSAENETUNREACH: return YO_ENETDOWN;
+		case WSAENOBUFS: return YO_ERANGE;
+		case WSAENOTCONN: return YO_ENETDOWN;
 		case WSAENOTSOCK: return YO_ENOTSOCK;
-		case WSAEPFNOSUPPORT: return YO_EPFNOSUPPORT;
-		case WSAEPROTONOSUPPORT: return YO_EPROTONOSUPPORT;
-		case WSAESHUTDOWN: return YO_EPIPE;
-		case WSAESOCKTNOSUPPORT: return YO_ESOCKTNOSUPPORT;
-		case WSAETIMEDOUT: return YO_ETIMEDOUT;
+		case WSAEPFNOSUPPORT: return YO_ENOTSUP;
+		case WSAEPROTONOSUPPORT: return YO_ENOTSUP;
+		case WSAESHUTDOWN: return YO_EOF;
+		case WSAESOCKTNOSUPPORT: return YO_ENOTSUP;
+		case WSAETIMEDOUT: return YO_ETIMEOUT;
 		case WSAEWOULDBLOCK: return YO_EAGAIN;
 		case WSAHOST_NOT_FOUND: return YO_ENOENT;
 		case WSANO_DATA: return YO_ENOENT;
@@ -574,16 +574,16 @@ yo_code_t yo_write(yo_fd_t fd, char *buff, size_t *pn) {
 			*pn = res;
 			return YO_OK;
 		}
-		default: return YO_EBADF;
+		default: return YO_EBADFD;
 	}
 }
 yo_code_t yo_sync(yo_fd_t fd) {
-	if (fd->kind != YOI_WIN_HND) return YO_EBADF;
+	if (fd->kind != YOI_WIN_HND) return YO_EBADFD;
 	if (!FlushFileBuffers(fd->hnd)) return yoi_win_conv_errno(GetLastError());
 	return YO_OK;
 }
 yo_code_t yo_stat(yo_fd_t fd, yo_stat_t *buff) {
-	if (fd->kind != YOI_WIN_HND) return YO_EBADF;
+	if (fd->kind != YOI_WIN_HND) return YO_EBADFD;
 
 	BY_HANDLE_FILE_INFORMATION info;
 	if (!GetFileInformationByHandle(fd->hnd, &info)) return yoi_win_conv_errno(GetLastError());
@@ -775,7 +775,7 @@ yo_code_t yo_file_open(yo_fd_t *pres, const char *path, yo_open_flags_t flags, i
 	return YO_OK;
 }
 yo_code_t yo_file_read(yo_fd_t fd, char *buff, size_t *n, size_t offset) {
-	if (fd->kind != YOI_WIN_HND) return YO_EBADF;
+	if (fd->kind != YOI_WIN_HND) return YO_EBADFD;
 
 	DWORD out_n;
 	OVERLAPPED overlapped = { .Pointer = (void*)offset };
@@ -792,7 +792,7 @@ yo_code_t yo_file_read(yo_fd_t fd, char *buff, size_t *n, size_t offset) {
 	return YO_OK;
 }
 yo_code_t yo_file_write(yo_fd_t fd, char *buff, size_t *n, size_t offset) {
-	if (fd->kind != YOI_WIN_HND) return YO_EBADF;
+	if (fd->kind != YOI_WIN_HND) return YO_EBADFD;
 
 	DWORD out_n;
 	OVERLAPPED overlapped = { .Pointer = (void*)offset };
@@ -1130,11 +1130,11 @@ err:
 yo_code_t yo_proc_wait(yo_proc_t proc, int *psig, int *pcode) {
 	switch (WaitForSingleObject(proc->hnd, INFINITE)) {
 		case WAIT_ABANDONED:
-			return YO_EDEADLK;
+			return YO_EBUSY;
 		case WAIT_OBJECT_0:
 			break;
 		case WAIT_TIMEOUT:
-			return YO_ETIMEDOUT;
+			return YO_ETIMEOUT;
 		case WAIT_FAILED:
 			return yoi_win_conv_errno(GetLastError());
 	}

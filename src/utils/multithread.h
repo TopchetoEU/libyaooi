@@ -38,7 +38,7 @@
 		int64_t ms = yo_timems(yo_timesub(timeout, yo_time(YO_CLOCK_MONO)));
 		if (ms < 0) ms = 0;
 
-		if (!SleepConditionVariableCS(cond, mut, ms)) return YO_ETIMEDOUT;
+		if (!SleepConditionVariableCS(cond, mut, ms)) return YO_ETIMEOUT;
 		return 0;
 	}
 	#define yo_cond_broadcast(cond) (void)WakeAllConditionVariable(cond)
@@ -116,7 +116,7 @@
 	#define yo_cond_wait(cond, mut) (void)pthread_cond_wait(cond, mut)
 	static inline yo_code_t yo_cond_timewait(yo_cond_t cond, yo_mutex_t mut, yo_time_t timeout) {
 		int code = pthread_cond_timedwait(cond, mut, &(struct timespec) { .tv_sec = timeout.sec, .tv_nsec = timeout.nsec });
-		if (code == ETIMEDOUT) return YO_ETIMEDOUT;
+		if (code == ETIMEDOUT) return YO_ETIMEOUT;
 		return 0;
 	}
 #elif defined YO_USE_MULTITHREAD

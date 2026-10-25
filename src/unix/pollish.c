@@ -34,7 +34,7 @@ static yo_code_t _yoi_pl_req_stop(yo_req_t req);
 
 static void _yoi_pl_req_cancel(yo_req_t req) {
 	_yoi_pl_req_stop(req);
-	yoi_req_end(req, YO_EINTR);
+	yoi_req_end(req, YO_ECANCELED);
 }
 static yo_req_t _yoi_pl_get_req(yo_fd_t fd, yoi_pl_evn_mask_t ready) {
 	for (yo_req_t i = fd->head; i; i = i->running.ioq.next) {
@@ -175,7 +175,7 @@ yo_code_t (yo_queue_poll)(yo_queue_t queue, const yo_time_t *deadline, yo_req_t 
 }
 
 yo_code_t (yoa_read)(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn) {
-	if (!yoi_unix_isfd(fd)) return YO_EBADF;
+	if (!yoi_unix_isfd(fd)) return YO_EBADFD;
 
 	req->running.ioq.kind = YOI_PL_READ;
 	req->running.ioq.fd = fd;
@@ -186,7 +186,7 @@ yo_code_t (yoa_read)(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn) {
 	return _yoi_pl_req_start(req);
 }
 yo_code_t (yoa_write)(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn) {
-	if (!yoi_unix_isfd(fd)) return YO_EBADF;
+	if (!yoi_unix_isfd(fd)) return YO_EBADFD;
 
 	req->running.ioq.kind = YOI_PL_WRITE;
 	req->running.ioq.fd = fd;
@@ -197,7 +197,7 @@ yo_code_t (yoa_write)(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn) {
 	return _yoi_pl_req_start(req);
 }
 yo_code_t (yoa_file_read)(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn, size_t offset) {
-	if (!yoi_unix_isfd(fd)) return YO_EBADF;
+	if (!yoi_unix_isfd(fd)) return YO_EBADFD;
 
 	req->running.ioq.kind = YOI_PL_PREAD;
 	req->running.ioq.fd = fd;
@@ -209,7 +209,7 @@ yo_code_t (yoa_file_read)(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn, size
 	return _yoi_pl_req_start(req);
 }
 yo_code_t (yoa_file_write)(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn, size_t offset) {
-	if (!yoi_unix_isfd(fd)) return YO_EBADF;
+	if (!yoi_unix_isfd(fd)) return YO_EBADFD;
 
 	req->running.ioq.kind = YOI_PL_PWRITE;
 	req->running.ioq.fd = fd;
@@ -221,7 +221,7 @@ yo_code_t (yoa_file_write)(yo_req_t req, yo_fd_t fd, char *buff, size_t *pn, siz
 	return _yoi_pl_req_start(req);
 }
 yo_code_t (yoa_socket_accept)(yo_req_t req, yo_fd_t server, yo_fd_t *pclient, yo_addr_t *paddr, uint16_t *pport) {
-	if (!yoi_unix_isfd(server)) return YO_EBADF;
+	if (!yoi_unix_isfd(server)) return YO_EBADFD;
 
 	req->running.ioq.kind = YOI_PL_ACCEPT;
 	req->running.ioq.fd = server;

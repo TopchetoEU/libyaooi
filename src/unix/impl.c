@@ -263,17 +263,17 @@ static yo_code_t yoi_unix_conv_errno(int unixerr) {
 	switch (unixerr) {
 		case EPERM: return YO_EPERM;
 		case ENOENT: return YO_ENOENT;
-		case ESRCH: return YO_ESRCH;
-		case EINTR: return YO_EINTR;
+		case ESRCH: return YO_ENOENT;
+		case EINTR: return YO_ECANCELED;
 		case EIO: return YO_EIO;
-		case ENXIO: return YO_ENXIO;
-		case E2BIG: return YO_E2BIG;
-		case ENOEXEC: return YO_ENOEXEC;
-		case EBADF: return YO_EBADF;
-		case ECHILD: return YO_ECHILD;
+		case ENXIO: return YO_ENOENT;
+		case E2BIG: return YO_EINVAL;
+		case ENOEXEC: return YO_EBADEXE;
+		case EBADF: return YO_EBADFD;
+		case ECHILD: return YO_EUNKNOWN;
 		case EAGAIN: return YO_EAGAIN;
 		case ENOMEM: return YO_ENOMEM;
-		case EACCES: return YO_EACCES;
+		case EACCES: return YO_EPERM;
 		case EFAULT: return YO_EFAULT;
 		case EBUSY: return YO_EBUSY;
 		case EEXIST: return YO_EEXIST;
@@ -282,56 +282,56 @@ static yo_code_t yoi_unix_conv_errno(int unixerr) {
 		case ENOTDIR: return YO_ENOTDIR;
 		case EISDIR: return YO_EISDIR;
 		case EINVAL: return YO_EINVAL;
-		case ENFILE: return YO_ENFILE;
-		case EMFILE: return YO_EMFILE;
-		case ENOTTY: return YO_ENOTTY;
-		case ETXTBSY: return YO_ETXTBSY;
+		case ENFILE: return YO_ENORESOURCE;
+		case EMFILE: return YO_ENORESOURCE;
+		case ENOTTY: return YO_ENOTTTY;
+		case ETXTBSY: return YO_EBUSY;
 		case EFBIG: return YO_EFBIG;
-		case ENOSPC: return YO_ENOSPC;
-		case ESPIPE: return YO_ESPIPE;
+		case ENOSPC: return YO_ENORESOURCE;
+		case ESPIPE: return YO_EBADOP;
 		case EROFS: return YO_EROFS;
-		case EMLINK: return YO_EMLINK;
-		case EPIPE: return YO_EPIPE;
+		case EMLINK: return YO_ENORESOURCE;
+		case EPIPE: return YO_EOF;
 		case ERANGE: return YO_ERANGE;
-		case EDEADLK: return YO_EDEADLK;
-		case ENAMETOOLONG: return YO_ENAMETOOLONG;
-		case ENOLCK: return YO_ENOLCK;
-		case ENOSYS: return YO_ENOSYS;
+		case EDEADLK: return YO_EBUSY;
+		case ENAMETOOLONG: return YO_ERANGE;
+		case ENOLCK: return YO_ENORESOURCE;
+		case ENOSYS: return YO_ENORESOURCE;
 		case ENOTEMPTY: return YO_ENOTEMPTY;
 		case ELOOP: return YO_ELOOP;
-		case EUNATCH: return YO_EUNATCH;
-		case ENODATA: return YO_ENODATA;
-		case ENONET: return YO_ENONET;
-		case ECOMM: return YO_ECOMM;
+		case EUNATCH: return YO_ENOENT;
+		case ENODATA: return YO_EOF;
+		case ENONET: return YO_ENETDOWN;
+		case ECOMM: return YO_EPROTO;
 		case EPROTO: return YO_EPROTO;
-		case EOVERFLOW: return YO_EOVERFLOW;
-		case ENOTUNIQ: return YO_ENOTUNIQ;
-		case ELIBBAD: return YO_ELIBBAD;
-		case EILSEQ: return YO_EILSEQ;
+		case EOVERFLOW: return YO_ERANGE;
+		case ENOTUNIQ: return YO_EEXIST;
+		case ELIBBAD: return YO_EBADEXE;
+		case EILSEQ: return YO_EUTF;
 		case ENOTSOCK: return YO_ENOTSOCK;
-		case EDESTADDRREQ: return YO_EDESTADDRREQ;
-		case EMSGSIZE: return YO_EMSGSIZE;
-		case EPROTOTYPE: return YO_EPROTOTYPE;
-		case ENOPROTOOPT: return YO_ENOPROTOOPT;
-		case EPROTONOSUPPORT: return YO_EPROTONOSUPPORT;
-		case ESOCKTNOSUPPORT: return YO_ESOCKTNOSUPPORT;
+		case EDESTADDRREQ: return YO_EINVAL;
+		case EMSGSIZE: return YO_ERANGE;
+		case EPROTOTYPE: return YO_EINVAL;
+		case ENOPROTOOPT: return YO_ENOTSUP;
+		case EPROTONOSUPPORT: return YO_ENOTSUP;
+		case ESOCKTNOSUPPORT: return YO_ENOTSUP;
 		case ENOTSUP: return YO_ENOTSUP;
-		case EPFNOSUPPORT: return YO_EPFNOSUPPORT;
-		case EAFNOSUPPORT: return YO_EAFNOSUPPORT;
+		case EPFNOSUPPORT: return YO_ENOTSUP;
+		case EAFNOSUPPORT: return YO_ENOTSUP;
 		case EADDRINUSE: return YO_EADDRINUSE;
 		case EADDRNOTAVAIL: return YO_EADDRNOTAVAIL;
 		case ENETDOWN: return YO_ENETDOWN;
-		case ENETUNREACH: return YO_ENETUNREACH;
+		case ENETUNREACH: return YO_ENETDOWN;
 		case ECONNABORTED: return YO_ECONNABORTED;
 		case ECONNRESET: return YO_ECONNRESET;
-		case ENOBUFS: return YO_ENOBUFS;
-		case EISCONN: return YO_EISCONN;
-		case ENOTCONN: return YO_ENOTCONN;
-		case ESHUTDOWN: return YO_ESHUTDOWN;
-		case ETIMEDOUT: return YO_ETIMEDOUT;
+		case ENOBUFS: return YO_ERANGE;
+		case EISCONN: return YO_EBADOP;
+		case ENOTCONN: return YO_EBADOP;
+		case ESHUTDOWN: return YO_EOF;
+		case ETIMEDOUT: return YO_ETIMEOUT;
 		case ECONNREFUSED: return YO_ECONNREFUSED;
 		case EHOSTDOWN: return YO_EHOSTDOWN;
-		case EHOSTUNREACH: return YO_EHOSTUNREACH;
+		case EHOSTUNREACH: return YO_EHOSTDOWN;
 		case EALREADY: return YO_EALREADY;
 		case EREMOTEIO: return YO_EREMOTEIO;
 		case ENOMEDIUM: return YO_ENOMEDIUM;
@@ -343,21 +343,24 @@ static yo_code_t yoi_unix_conv_errno(int unixerr) {
 }
 static yo_code_t yoi_unix_conv_aierr(int aierr) {
 	switch (aierr) {
-		case EAI_BADFLAGS: return YO_EAI_BADFLAGS;
-		case EAI_NONAME: return YO_EAI_NONAME;
-		case EAI_AGAIN: return YO_EAI_AGAIN;
-		case EAI_FAIL: return YO_EAI_FAIL;
-		case EAI_FAMILY: return YO_EAI_FAMILY;
-		case EAI_SOCKTYPE: return YO_EAI_SOCKTYPE;
-		case EAI_SERVICE: return YO_EAI_SERVICE;
-		case EAI_MEMORY: return YO_EAI_MEMORY;
-		case EAI_OVERFLOW: return YO_EAI_OVERFLOW;
-		#ifdef YO_USE_LINUX
-			case EAI_NODATA: return YO_EAI_NODATA;
-			case EAI_ADDRFAMILY: return YO_EAI_ADDRFAMILY;
-			#ifdef EAI_CANCELED // pesky gnu extensions
-				case EAI_CANCELED: return YO_EAI_CANCELED;
-			#endif
+		case EAI_BADFLAGS: return YO_EINVAL;
+		case EAI_NONAME: return YO_EINVAL;
+		case EAI_AGAIN: return YO_EAGAIN;
+		case EAI_FAIL: return YO_EIO;
+		case EAI_FAMILY: return YO_ENOTSUP;
+		case EAI_SOCKTYPE: return YO_ENOTSUP;
+		case EAI_SERVICE: return YO_ENOTSUP;
+		case EAI_MEMORY: return YO_ENOMEM;
+		case EAI_OVERFLOW: return YO_ERANGE;
+		// pesky gnu extensions
+		#ifdef EAI_NODATA
+			case EAI_NODATA: return YO_EOF;
+		#endif
+		#ifdef EAI_ADDRFAMILY
+			case EAI_ADDRFAMILY: return YO_ENOTSUP;
+		#endif
+		#ifdef EAI_CANCELED
+			case EAI_CANCELED: return YO_ECANCELED;
 		#endif
 
 		default: return YO_EUNKNOWN;
@@ -442,7 +445,7 @@ void yo_fd_close(yo_fd_t fd) {
 }
 
 yo_code_t yo_read(yo_fd_t fd, char *buff, size_t *pn) {
-	if (!yoi_unix_isfd(fd)) return YO_EBADF;
+	if (!yoi_unix_isfd(fd)) return YO_EBADFD;
 
 	ssize_t n = read(fd->fd, buff, *pn);
 	if (n < 0) return yoi_unix_conv_errno(errno);
@@ -451,7 +454,7 @@ yo_code_t yo_read(yo_fd_t fd, char *buff, size_t *pn) {
 	return YO_OK;
 }
 yo_code_t yo_write(yo_fd_t fd, char *buff, size_t *pn) {
-	if (!yoi_unix_isfd(fd)) return YO_EBADF;
+	if (!yoi_unix_isfd(fd)) return YO_EBADFD;
 
 	ssize_t n = write(fd->fd, buff, *pn);
 	if (n < 0) return yoi_unix_conv_errno(errno);
@@ -460,7 +463,7 @@ yo_code_t yo_write(yo_fd_t fd, char *buff, size_t *pn) {
 	return YO_OK;
 }
 yo_code_t yo_sync(yo_fd_t fd) {
-	if (!yoi_unix_isfd(fd)) return YO_EBADF;
+	if (!yoi_unix_isfd(fd)) return YO_EBADFD;
 	if (fsync(fd->fd) < 0) return yoi_unix_conv_errno(errno);
 	return YO_OK;
 }
@@ -491,7 +494,7 @@ yo_code_t yo_tty_err(yo_fd_t *pres) {
 	return yo_fd_new(pres, STDERR_FILENO, false);
 }
 yo_code_t yo_tty_raw(yo_fd_t tty, yo_tty_raw_t *pres) {
-	if (!yoi_unix_isfd(tty)) return YO_EBADF;
+	if (!yoi_unix_isfd(tty)) return YO_EBADFD;
 
 	yo_tty_raw_t res = malloc(sizeof *res);
 	if (!res) return YO_ENOMEM;
@@ -587,7 +590,7 @@ yo_code_t yo_file_open(yo_fd_t *pres, const char *path, yo_open_flags_t flags, i
 	return YO_OK;
 }
 yo_code_t yo_file_read(yo_fd_t fd, char *buff, size_t *n, size_t offset) {
-	if (!yoi_unix_isfd(fd)) return YO_EBADF;
+	if (!yoi_unix_isfd(fd)) return YO_EBADFD;
 
 	ssize_t res = pread(fd->fd, buff, *n, offset);
 	if (res < 0) return yoi_unix_conv_errno(errno);
@@ -595,7 +598,7 @@ yo_code_t yo_file_read(yo_fd_t fd, char *buff, size_t *n, size_t offset) {
 	return YO_OK;
 }
 yo_code_t yo_file_write(yo_fd_t fd, char *buff, size_t *n, size_t offset) {
-	if (!yoi_unix_isfd(fd)) return YO_EBADF;
+	if (!yoi_unix_isfd(fd)) return YO_EBADFD;
 
 	ssize_t res = pwrite(fd->fd, buff, *n, offset);
 	if (res < 0) return yoi_unix_conv_errno(errno);
@@ -725,7 +728,7 @@ err_socket:
 	return yoi_unix_conv_errno(errno);
 }
 yo_code_t yo_socket_accept(yo_fd_t server, yo_fd_t *pres, yo_addr_t *paddr, uint16_t *pport) {
-	if (!yoi_unix_isfd(server)) return YO_EBADF;
+	if (!yoi_unix_isfd(server)) return YO_EBADFD;
 
 	yo_fd_t client = malloc(sizeof *client);
 	if (!client) return YO_ENOMEM;
@@ -1105,7 +1108,7 @@ yo_code_t yo_sig_wait(yo_signo_t *pres) {
 
 		if (res == SIGPWR) {
 			yo_setmask(SIG_SETMASK, &old, NULL);
-			return YO_EINTR;
+			return YO_ECANCELED;
 		}
 
 		int sig = yoi_unix_conv_signal(res);

@@ -139,7 +139,7 @@ static yo_code_t yoi_pl_impl_poll(yo_queue_t queue, const yo_time_t *deadline, v
 		}
 	}
 
-	return YO_ETIMEDOUT;
+	return YO_ETIMEOUT;
 }
 
 static yo_code_t yoi_queue_impl_init(yo_queue_t queue) {

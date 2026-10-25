@@ -53,7 +53,7 @@ static yo_code_t yoi_pl_impl_poll(yo_queue_t queue, const yo_time_t *deadline, v
 
 	if (deadline) {
 		yo_time_t now = yo_time(YO_CLOCK_MONO);
-		if (yo_timecmp(now, *deadline) > 0) return YO_ETIMEDOUT;
+		if (yo_timecmp(now, *deadline) > 0) return YO_ETIMEOUT;
 
 		timerfd_settime(queue->impl.timer_fd, TFD_TIMER_ABSTIME, &(struct itimerspec) {
 			.it_value = { deadline->sec, deadline->nsec },
@@ -72,15 +72,15 @@ static yo_code_t yoi_pl_impl_poll(yo_queue_t queue, const yo_time_t *deadline, v
 		if (errno != EINTR) err(1, "failed to poll");
 	}
 	if (n == 0) {
-		// if (deadline) return YO_ETIMEDOUT;
-		return YO_ETIMEDOUT;
+		// if (deadline) return YO_ETIMEOUT;
+		return YO_ETIMEOUT;
 	}
 
 	if (evn.data.fd == queue->impl.timer_fd) {
 		assert(deadline != NULL && "timer returned without a timeout");
 		char buff[8];
 		read(evn.data.fd, buff, sizeof buff);
-		return YO_ETIMEDOUT;
+		return YO_ETIMEOUT;
 	}
 
 	yoi_pl_evn_mask_t mask = 0;

@@ -79,28 +79,28 @@ static yo_code_t yoi_ansi_conv_errno(int err, yo_code_t fallback) {
 			case ENOENT: return YO_ENOENT;
 		#endif
 		#ifdef ESRCH
-			case ESRCH: return YO_ESRCH;
+			case ESRCH: return YO_ENOENT;
 		#endif
 		#ifdef EINTR
-			case EINTR: return YO_EINTR;
+			case EINTR: return YO_ECANCELED;
 		#endif
 		#ifdef EIO
 			case EIO: return YO_EIO;
 		#endif
 		#ifdef ENXIO
-			case ENXIO: return YO_ENXIO;
+			case ENXIO: return YO_ENORESOURCE;
 		#endif
 		#ifdef E2BIG
-			case E2BIG: return YO_E2BIG;
+			case E2BIG: return YO_EINVAL;
 		#endif
 		#ifdef ENOEXEC
-			case ENOEXEC: return YO_ENOEXEC;
+			case ENOEXEC: return YO_EBADEXE;
 		#endif
 		#ifdef EBADF
-			case EBADF: return YO_EBADF;
+			case EBADF: return YO_EBADFD;
 		#endif
 		#ifdef ECHILD
-			case ECHILD: return YO_ECHILD;
+			case ECHILD: return YO_EIO;
 		#endif
 		#ifdef EAGAIN
 			case EAGAIN: return YO_EAGAIN;
@@ -109,7 +109,7 @@ static yo_code_t yoi_ansi_conv_errno(int err, yo_code_t fallback) {
 			case ENOMEM: return YO_ENOMEM;
 		#endif
 		#ifdef EACCES
-			case EACCES: return YO_EACCES;
+			case EACCES: return YO_EPERM;
 		#endif
 		#ifdef EFAULT
 			case EFAULT: return YO_EFAULT;
@@ -139,37 +139,37 @@ static yo_code_t yoi_ansi_conv_errno(int err, yo_code_t fallback) {
 			case EINVAL: return YO_EINVAL;
 		#endif
 		#ifdef ENFILE
-			case ENFILE: return YO_ENFILE;
+			case ENFILE: return YO_ENORESOURCE;
 		#endif
 		#ifdef EMFILE
-			case EMFILE: return YO_EMFILE;
+			case EMFILE: return YO_ENORESOURCE;
 		#endif
 		#ifdef ENOTTY
-			case ENOTTY: return YO_ENOTTY;
+			case ENOTTY: return YO_ENOTTTY;
 		#endif
 		#ifdef ETXTBSY
-			case ETXTBSY: return YO_ETXTBSY;
+			case ETXTBSY: return YO_EBUSY;
 		#endif
 		#ifdef EFBIG
 			case EFBIG: return YO_EFBIG;
 		#endif
 		#ifdef ENOSPC
-			case ENOSPC: return YO_ENOSPC;
+			case ENOSPC: return YO_ENORESOURCE;
 		#endif
 		#ifdef ESPIPE
-			case ESPIPE: return YO_ESPIPE;
+			case ESPIPE: return YO_EBADOP;
 		#endif
 		#ifdef EROFS
 			case EROFS: return YO_EROFS;
 		#endif
 		#ifdef EMLINK
-			case EMLINK: return YO_EMLINK;
+			case EMLINK: return YO_ENORESOURCE;
 		#endif
 		#ifdef EPIPE
-			case EPIPE: return YO_EPIPE;
+			case EPIPE: return YO_EOF;
 		#endif
 		#ifdef EDOM
-			case EDOM: return YO_EDOM;
+			case EDOM: return YO_ERANGE;
 		#endif
 		#ifdef ERANGE
 			case ERANGE: return YO_ERANGE;
@@ -209,7 +209,7 @@ void yo_fd_close(yo_fd_t fd) {
 }
 
 yo_code_t yo_read(yo_fd_t fd, char *buff, size_t *pn) {
-	if (!yoi_ansi_isfd(fd)) return YO_EBADF;
+	if (!yoi_ansi_isfd(fd)) return YO_EBADFD;
 
 	clearerr(fd->file);
 	size_t n = fread(buff, *pn, 1, fd->file);
@@ -219,7 +219,7 @@ yo_code_t yo_read(yo_fd_t fd, char *buff, size_t *pn) {
 	return YO_OK;
 }
 yo_code_t yo_write(yo_fd_t fd, char *buff, size_t *pn) {
-	if (!yoi_ansi_isfd(fd)) return YO_EBADF;
+	if (!yoi_ansi_isfd(fd)) return YO_EBADFD;
 
 	clearerr((FILE*)fd);
 	size_t n = fwrite(buff, *pn, 1, (FILE*)fd);
@@ -229,7 +229,7 @@ yo_code_t yo_write(yo_fd_t fd, char *buff, size_t *pn) {
 	return YO_OK;
 }
 yo_code_t yo_sync(yo_fd_t fd) {
-	if (!yoi_ansi_isfd(fd)) return YO_EBADF;
+	if (!yoi_ansi_isfd(fd)) return YO_EBADFD;
 	if (fflush(fd->file) < 0) return YO_EIO;
 	return YO_OK;
 }
@@ -352,29 +352,29 @@ yo_code_t yo_file_open(yo_fd_t *pres, const char *path, yo_open_flags_t flags, i
 	return YO_OK;
 }
 yo_code_t yo_file_read(yo_fd_t fd, char *buff, size_t *pn, size_t offset) {
-	if (!yoi_ansi_isfd(fd)) return YO_EBADF;
+	if (!yoi_ansi_isfd(fd)) return YO_EBADFD;
 
 	size_t curr = ftell(fd->file);
-	if (fseek(fd->file, offset, SEEK_SET) < 0) return YO_ESPIPE;
+	if (fseek(fd->file, offset, SEEK_SET) < 0) return YO_EBADOP;
 
 	size_t n = fread(buff, 1, *pn, fd->file);
 	if (ferror(fd->file)) return YO_EIO;
 
-	if (fseek(fd->file, curr, SEEK_SET) < 0) return YO_ESPIPE;
+	if (fseek(fd->file, curr, SEEK_SET) < 0) return YO_EBADOP;
 
 	*pn = n;
 	return YO_OK;
 }
 yo_code_t yo_file_write(yo_fd_t fd, char *buff, size_t *pn, size_t offset) {
-	if (!yoi_ansi_isfd(fd)) return YO_EBADF;
+	if (!yoi_ansi_isfd(fd)) return YO_EBADFD;
 
 	size_t curr = ftell(fd->file);
-	if (fseek(fd->file, offset, SEEK_SET) < 0) return YO_ESPIPE;
+	if (fseek(fd->file, offset, SEEK_SET) < 0) return YO_EBADOP;
 
 	size_t n = fwrite(buff, 1, *pn, fd->file);
 	if (ferror(fd->file)) return YO_EIO;
 
-	if (fseek(fd->file, curr, SEEK_SET) < 0) return YO_ESPIPE;
+	if (fseek(fd->file, curr, SEEK_SET) < 0) return YO_EBADOP;
 
 	*pn = n;
 	return YO_OK;
