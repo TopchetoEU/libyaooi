@@ -1,6 +1,7 @@
 // libyaooi, Copyright (C) 2025-2026 topchetoeu, see LICENSE for full LGPL text
 
 #pragma once
+#define _XOPEN_SOURCE 700
 
 #include <stdbool.h>
 
@@ -79,6 +80,7 @@
 		pool_worker->args = args;
 		pool_worker->next = NULL;
 
+		req->running.task.worker = pool_worker;
 		yoi_req_begin(req, _yoi_pool_cancelcb);
 
 		if (yo_thread_new(pool_worker->thread, yoi_pool_worker_entry, pool_worker) < 0) {
