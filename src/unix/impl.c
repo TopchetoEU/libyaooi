@@ -665,11 +665,7 @@ yo_code_t yo_dir_next(yo_dir_t dir, char **pname) {
 		errno = 0;
 		ent = readdir(dir->dir);
 		if (errno) return yoi_unix_conv_errno(errno);
-
-		if (!ent) {
-			*pname = NULL;
-			return YO_OK;
-		}
+		if (!ent) return YO_EOF;
 	}
 	while (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."));
 
